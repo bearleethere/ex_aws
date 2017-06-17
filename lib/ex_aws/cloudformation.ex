@@ -206,6 +206,31 @@ defmodule ExAws.Cloudformation do
   end
 
   @doc """
+  Returns the description for the specified stack; if no stack name was specified,
+  then it returns the description for all the stacks created.
+
+  Please read: http://docs.aws.amazon.com/AWSCloudFormation/latest/APIReference/API_DescribeStacks.html
+
+  Examples:
+  ```
+  # Get all stacks
+  Cloudformation.describe_stacks
+
+  # Get a stack called "Test"
+  Cloudformation.describe_stacks([stack_name: "Test"])
+  ```
+  """
+  @type describe_stacks_opts :: [
+    stack_name: binary,
+    next_token: binary
+  ]
+  @spec describe_stacks(opts :: describe_stacks_opts) :: ExAws.Operation.Query.t
+  def describe_stacks(opts \\ []) do
+    request(:describe_stacks, opts |> normalize_opts)
+  end
+
+
+  @doc """
   Describes a specified stack's resource.
   Resource of the stack is specified by a logical record ID.
 
@@ -368,23 +393,6 @@ defmodule ExAws.Cloudformation do
     request(:list_stack_resources, query_params)
   end
 
-  @doc "Returns the description for the specified stack; if no stack name was specified, then it returns the description for all the stacks created."
-  @spec describe_stacks(stack_name :: binary) :: ExAws.Operation.Query.t
-  def describe_stacks(stack_name \\ nil, opts \\ []) do
-    normalized_params = opts
-    |> normalize_opts
-    
-    query_params =
-    if is_nil(stack_name) || stack_name == "" do
-      normalized_params
-    else
-      normalized_params
-      |> Map.merge(%{ "StackName" => stack_name })
-    end
-
-    request(:describe_stacks, query_params)
-  end
-
   ########################
   ### Helper Functions ###
   ########################
@@ -405,12 +413,6 @@ defmodule ExAws.Cloudformation do
     opts
     |> Enum.reject(fn {_key, value} -> value == nil end)
     |> Enum.into(%{})
-  end
-
-  defp normalize_opts(opts) do
-    opts
-    |> Enum.into(%{})
-    |> camelize_keys
   end
 
   ############################
@@ -445,7 +447,7 @@ defmodule ExAws.Cloudformation do
     build_indexed_params([
       {"Parameters.member.{i}.ParameterKey", parameter_keys},
       {"Parameters.member.{i}.ParameterValue", parameter_value},
-      {"Parameters.member.{i}.UsePreviousValue", use_previous_value}]) 
+      {"Parameters.member.{i}.UsePreviousValue", use_previous_value}])
     |> filter_nil_params
   end
 
@@ -457,10 +459,10 @@ defmodule ExAws.Cloudformation do
   defp transform(:tags, tags) do
     keys   = for {key, _}   <- tags, do: Atom.to_string(key)
     values = for {_, value} <- tags, do: value
-    
+
     build_indexed_params([
       {"Tags.member.{i}.Key", keys},
-      {"Tags.member.{i}.Value", values}]) 
+      {"Tags.member.{i}.Value", values}])
     |> filter_nil_params
   end
 

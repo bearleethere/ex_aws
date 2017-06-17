@@ -80,11 +80,11 @@ defmodule ExAws.Utils do
 
   def iso_z_to_secs(<<date::binary-10, "T", time::binary-8, "Z">> <> _) do
     [year, mon, day] = date
-      |> String.split("-") 
+      |> String.split("-")
       |> Enum.map(&String.to_integer/1)
 
     [hour, min, sec] = time
-      |> String.split(":") 
+      |> String.split(":")
       |> Enum.map(&String.to_integer/1)
 
     # Seriously? Gregorian seconds but not epoch seconds?
@@ -111,12 +111,12 @@ defmodule ExAws.Utils do
 
   def build_indexed_params(key_template, values) when is_list(values) do
     case String.split(key_template, "{i}") do
-      [prefix, suffix] -> 
+      [prefix, suffix] ->
         values
         |> Enum.with_index(1)
         |> Enum.map(fn {value, i} -> {prefix <> "#{i}" <> suffix, value} end)
 
-      _ -> raise ArgumentError, "The Argument key_template is invalid. 
+      _ -> raise ArgumentError, "The Argument key_template is invalid.
       Expected a string with exactly one location for an index, got: \"#{key_template}\"
       Example valid key_template: \"Tags.member.{i}.Key\""
     end
@@ -126,6 +126,12 @@ defmodule ExAws.Utils do
 
   def build_indexed_params(key_templates) when is_list(key_templates) do
     Enum.flat_map(key_templates, fn {key_template, values} -> build_indexed_params(key_template, values) end)
+  end
+
+  def normalize_opts(opts) do
+    opts
+    |> Enum.into(%{})
+    |> camelize_keys
   end
 
 end

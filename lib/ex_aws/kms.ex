@@ -527,10 +527,4 @@ defmodule ExAws.KMS do
           ]
     } |> Map.merge(opts))
   end
-
-  defp normalize_opts(opts) do
-    opts
-    |> Enum.into(%{})
-    |> camelize_keys
-  end
 end
