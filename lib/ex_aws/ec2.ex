@@ -22,8 +22,7 @@ defmodule ExAws.EC2 do
   ExAws.EC2.describe_instance_status(instance_id: ["i-e5974f4c"])
   ```
   """
-
-  import ExAws.Utils
+   use ExAws.Utils
 
   @version "2015-10-01"
 
@@ -140,8 +139,11 @@ defmodule ExAws.EC2 do
     |> normalize_opts
     |> Map.merge(%{"AvailabilityZone" => availability_zone})
 
-    tag_specifications_params = maybe_transform(:tag_specifications, opts[:tag_specifications])
-    volume_type_params = maybe_transform(:volume_type, opts[:volume_type])
+
+    tag_specifications_params = maybe_format opts, :tag_specifications
+    
+    
+    volume_type_params = maybe_format opts, :volume_type
 
     create_volume_params = Enum.concat([
       normal_params,
@@ -152,6 +154,7 @@ defmodule ExAws.EC2 do
 
     request(:post, :create_volume, create_volume_params)
   end
+
 
   @doc """
   Deletes a specified volume
@@ -200,7 +203,7 @@ defmodule ExAws.EC2 do
     |> normalize_opts
     |> Map.merge(%{"VolumeId" => volume_id})
 
-    volume_type_param = maybe_transform(:volume_type, opts[:volume_type])
+    volume_type_param = maybe_format opts, :volume_type
 
     modify_volume_params =
       Enum.concat([volume_type_param, normal_params])
@@ -225,11 +228,11 @@ defmodule ExAws.EC2 do
     }
   end
 
-  #######################
-  # Transform Functions #
-  #######################
+  ####################
+  # Format Functions #
+  ####################
 
-  defp transform(:tags, tags) do
+  defp format_request(:tags, tags) do
     keys   = for {key, _}   <- tags, do: Atom.to_string(key)
     values = for {_, value} <- tags, do: value
 
@@ -239,7 +242,7 @@ defmodule ExAws.EC2 do
     |> filter_nil_params
   end
 
-  defp transform(:tag_specifications, tag_specs) do
+  defp format_request(:tag_specifications, tag_specs) do
     split_keys_and_values = fn tag_spec ->
         [ {"{i}.Key",
             tag_spec |> Enum.map(fn {key, _} -> Atom.to_string(key) end)},
@@ -258,16 +261,11 @@ defmodule ExAws.EC2 do
     filter_nil_params(indexed_params)
   end
 
-  defp transform(:volume_type, volume_type) do
+
+  defp format_request(:volume_type, volume_type) do
     [{"VolumeType", volume_type |> Atom.to_string}]
   end
 
-  defp maybe_transform(transformation_type, value) when is_atom(transformation_type) do
-    case value do
-        nil -> %{}
-      value -> transform(transformation_type, value)
-    end
-  end
 
 
   # @type datetime :: {

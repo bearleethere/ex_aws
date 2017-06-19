@@ -1,6 +1,13 @@
 defmodule ExAws.Utils do
   @moduledoc false
 
+  defmacro __using__(_) do
+    quote do
+      import ExAws.Utils
+      require ExAws.Utils
+    end
+  end
+
   def identity(x), do: x
 
   def identity(x, _), do: x
@@ -137,9 +144,9 @@ defmodule ExAws.Utils do
         end)
         |> Enum.to_list
 
-      _ -> raise ArgumentError, "The Argument key is invalid.
-      Expected a string with exactly one location for an index, got: \"#{key}\"
-      Example valid key: \"Tags.member.{i}.Key\""
+      _ -> raise ArgumentError, "The Argument key_template is invalid.
+      Expected a string with exactly one location for an index, got: \"#{key_template}\"
+      Example valid key_template: \"Tags.member.{i}.Key\""
     end
   end
   # When only one key_template and value is passed  
@@ -153,7 +160,7 @@ defmodule ExAws.Utils do
       build_indexed_params(key_template, values)
     end)
   end
-  
+
 
   def normalize_opts(opts) do
     opts
@@ -165,6 +172,15 @@ defmodule ExAws.Utils do
     opts
     |> Enum.reject(fn {_key, value} -> value == nil end)
     |> Enum.into(%{})
+  end
+
+  defmacro maybe_format(argument, format_name) do
+    quote do
+      case unquote(argument)[unquote(format_name)] do
+        nil -> []
+        value -> format_request(unquote(format_name), value)
+      end
+    end
   end
 
 end

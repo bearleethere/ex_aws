@@ -24,7 +24,7 @@ defmodule ExAws.Cloudformation do
   http://docs.aws.amazon.com/AWSCloudFormation/latest/APIReference/API_Operations.html
   """
 
-  import ExAws.Utils
+  use ExAws.Utils
 
   @version "2010-05-15"
 
@@ -85,7 +85,7 @@ defmodule ExAws.Cloudformation do
 
   @spec continue_update_rollback(stack_name :: binary, opts :: continue_update_rollback_opts) :: ExAws.Operation.Query.t
   def continue_update_rollback(stack_name, opts \\ []) do
-    skip_resources = maybe_transform(:skip_resources, opts[:skip_resources])
+    skip_resources = maybe_format opts, :skip_resources
 
     query_params =
       Enum.concat([skip_resources,
@@ -158,18 +158,20 @@ defmodule ExAws.Cloudformation do
 
     transformed_params = @params_to_transform
     |> Enum.flat_map(fn key ->
-      maybe_transform(key, opts[key])
+      maybe_format opts, key
     end)
 
-    other_params = [{"StackName", stack_name},
-                    {"TemplateURL", opts[:template_url]},
-                    {"RoleARN", opts[:role_arn]}]
+    other_params = 
+      [ {"StackName", stack_name},
+        {"TemplateURL", opts[:template_url]},
+        {"RoleARN", opts[:role_arn]} ]
 
     query_params =
       Enum.concat([normal_params, transformed_params, other_params])
       |> filter_nil_params
 
     request(:create_stack, query_params)
+
   end
 
 
@@ -197,7 +199,7 @@ defmodule ExAws.Cloudformation do
   ]
   @spec delete_stack(stack_name :: binary, opts :: delete_stack_opts) :: ExAws.Operation.Query.t
   def delete_stack(stack_name, opts \\ []) do
-    transformed_retain_resources = maybe_transform(:retain_resources, opts[:retain_resources])
+    transformed_retain_resources = maybe_format opts, :retain_resources
 
     query_params = Enum.concat([transformed_retain_resources, [{"StackName", stack_name}, {"RoleARN", opts[:role_arn]}]])
     |> filter_nil_params
@@ -304,7 +306,7 @@ defmodule ExAws.Cloudformation do
       |> Keyword.delete(:template_stage)
       |> normalize_opts
 
-    template_stage_param = maybe_transform(:template_stage, opts[:template_stage])
+    template_stage_param = maybe_format opts, :template_stage
     query_params =
       Enum.concat([template_stage_param, normal_params])
       |> Enum.into(%{})
@@ -362,7 +364,7 @@ defmodule ExAws.Cloudformation do
   ]
   @spec list_stacks(opts :: list_stacks_opts) :: ExAws.Operation.Query.t
   def list_stacks(opts \\ []) do
-    transformed_stack_status_filters = maybe_transform(:stack_status_filters, opts[:stack_status_filters])
+    transformed_stack_status_filters = maybe_format opts, :stack_status_filters
 
     query_params =
       Enum.concat([transformed_stack_status_filters,
@@ -413,19 +415,19 @@ defmodule ExAws.Cloudformation do
   ### Transform Functions ###
   ##########################
 
-  defp transform(:skip_resources, resources) do
+  defp format_request(:skip_resources, resources) do
     build_indexed_params("ResourcesToSkip.member.{i}", resources)
   end
 
-  defp transform(:stack_status_filters, filters) do
+  defp format_request(:stack_status_filters, filters) do
     build_indexed_params("StackStatusFilter.member.{i}", filters |> Enum.map(&upcase/1))
   end
 
-  defp transform(:capabilities, capabilities) do
+  defp format_request(:capabilities, capabilities) do
     build_indexed_params("Capabilities.member.{i}", capabilities |> Enum.map(&upcase/1))
   end
 
-  defp transform(:parameters, parameters) do
+  defp format_request(:parameters, parameters) do
     indexed_params =
       build_indexed_params([
         {"Parameters.member.{i}.ParameterKey",
@@ -439,12 +441,12 @@ defmodule ExAws.Cloudformation do
     filter_nil_params(indexed_params)
   end
 
-  defp transform(:notification_arns, notification_arns) do
+  defp format_request(:notification_arns, notification_arns) do
     build_indexed_params("NotificationARN.member.{i}", notification_arns)
   end
 
 
-  defp transform(:tags, tags) do
+  defp format_request(:tags, tags) do
     indexed_params =
       build_indexed_params([
         {"Tags.member.{i}.Key",
@@ -456,22 +458,16 @@ defmodule ExAws.Cloudformation do
     filter_nil_params(indexed_params)
   end
 
-  defp transform(:resource_types, resource_types) do
+  defp format_request(:resource_types, resource_types) do
     build_indexed_params("ResourceTypes.member.{i}", resource_types)
   end
 
-  defp transform(:retain_resources, retain_resources) do
+  defp format_request(:retain_resources, retain_resources) do
     build_indexed_params("RetainResources.member.{i}", retain_resources)
   end
 
-  defp transform(:template_stage, template_stage) do
+  defp format_request(:template_stage, template_stage) do
     [{"TemplateStage", camelize_key(template_stage)}]
   end
 
-  defp maybe_transform(transformation_type, value) when is_atom(transformation_type) do
-    case value do
-        nil -> %{}
-      value -> transform(transformation_type, value)
-    end
-  end
 end
