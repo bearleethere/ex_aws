@@ -111,23 +111,29 @@ defmodule ExAws.Utils do
 
 
 
-  # TODO CLEAN UP build_indexed_params
-  defp add_prefix(prefix, list), do: Enum.map(list, fn {key, value} -> {prefix <> "." <> key, value} end)
-
-  def build_indexed_params(key, values) when is_list(values) do
-    case String.split(key, "{i}") do
+  # a build_indexed_params util, Adds prefix to nested indexed params 
+  defp add_prefix(prefix, kv_pairs) do
+    kv_pairs
+    |> Enum.map(fn {key_template, value} -> 
+      {prefix <> "." <> key_template, value} 
+    end)
+  end
+  # NOTE: build_indexed_params is not tail call optimized 
+  # but it is unlikely that any AWS params will ever
+  # be nested enough for this to  cause a stack overflow
+  def build_indexed_params(key_template, values) when is_list(values) do
+    case String.split(key_template, "{i}") do
       [prefix, suffix] ->
         values
         |> Stream.with_index(1)
         |> Stream.map(fn {value, i} -> {prefix <> "#{i}" <> suffix, value} end)
         |> Stream.flat_map(fn
-
-          {key, kv_pairs} when is_list(kv_pairs) -> # recuse over nested key value pairs
+          # if there are nested key value pairs, recuse over nested kv_pairs by calling build_indexed_params again
+          {key, kv_pairs} when is_list(kv_pairs) -> 
             add_prefix(key, kv_pairs) |> build_indexed_params
-
+            
           {key, value} ->
             [{key, value}]
-
         end)
         |> Enum.to_list
 
@@ -136,15 +142,18 @@ defmodule ExAws.Utils do
       Example valid key: \"Tags.member.{i}.Key\""
     end
   end
-  
-  def build_indexed_params(key, value), do: build_indexed_params(key, [value])
-  def build_indexed_params(key_values_list) do
-    key_values_list
-    |> Enum.flat_map(fn
-      {key, values} -> build_indexed_params(key, values)
+  # When only one key_template and value is passed  
+  def build_indexed_params(key_template, value) do
+    build_indexed_params(key_template, [value])
+  end
+  # When multiple key_templates and values pairs are passed
+  def build_indexed_params(kv_pairs) do
+    kv_pairs
+    |> Enum.flat_map(fn {key_template, values} -> 
+      build_indexed_params(key_template, values)
     end)
   end
-
+  
 
   def normalize_opts(opts) do
     opts
