@@ -96,7 +96,7 @@ defmodule ExAws.Cloudformation do
   end
 
   # key :: atom
-  # These parameters either has a list that needs transformed to the kind of
+  # These parameters either has a list that needs formated to the kind of
   # parameters AWS is using or simply camelizing them does not work.
   @params_to_delete [
     :capabilities,
@@ -109,8 +109,8 @@ defmodule ExAws.Cloudformation do
     :status_filter
   ]
 
-  # {key :: atom, transform_function_name :: atom}
-  @params_to_transform [
+  # {param_key :: atom}
+  @params_to_format [
     :capabilities,
     :parameters,
     :notification_arns,
@@ -152,22 +152,23 @@ defmodule ExAws.Cloudformation do
 
   @spec create_stack(stack_name :: binary, opts :: create_stack_opts) :: ExAws.Operation.Query.t
   def create_stack(stack_name, opts \\ []) do
-    normal_params = opts
+    normalized_params = opts
     |> Enum.reject(fn {key, _} -> key in @params_to_delete end)
     |> normalize_opts
 
-    transformed_params = @params_to_transform
+    formated_params = @params_to_format
     |> Enum.flat_map(fn key ->
       maybe_format opts, key
     end)
 
+    # TODO fix normalize_opts so this isn't needed
     other_params = 
       [ {"StackName", stack_name},
         {"TemplateURL", opts[:template_url]},
         {"RoleARN", opts[:role_arn]} ]
 
     query_params =
-      Enum.concat([normal_params, transformed_params, other_params])
+      Enum.concat([normalized_params, formated_params, other_params])
       |> filter_nil_params
 
     request(:create_stack, query_params)
@@ -199,9 +200,9 @@ defmodule ExAws.Cloudformation do
   ]
   @spec delete_stack(stack_name :: binary, opts :: delete_stack_opts) :: ExAws.Operation.Query.t
   def delete_stack(stack_name, opts \\ []) do
-    transformed_retain_resources = maybe_format opts, :retain_resources
+    retain_resources = maybe_format opts, :retain_resources
 
-    query_params = Enum.concat([transformed_retain_resources, [{"StackName", stack_name}, {"RoleARN", opts[:role_arn]}]])
+    query_params = Enum.concat([retain_resources, [{"StackName", stack_name}, {"RoleARN", opts[:role_arn]}]])
     |> filter_nil_params
 
     request(:delete_stack, query_params)
@@ -302,13 +303,14 @@ defmodule ExAws.Cloudformation do
   ]
   @spec get_template(opts :: get_template_opts) :: ExAws.Operation.Query.t
   def get_template(opts \\ []) do
-    normal_params = opts
+    normalized_params = opts
       |> Keyword.delete(:template_stage)
       |> normalize_opts
 
     template_stage_param = maybe_format opts, :template_stage
+
     query_params =
-      Enum.concat([template_stage_param, normal_params])
+      Enum.concat([normalized_params, template_stage_param])
       |> Enum.into(%{})
 
     request(:get_template, query_params)
@@ -364,10 +366,10 @@ defmodule ExAws.Cloudformation do
   ]
   @spec list_stacks(opts :: list_stacks_opts) :: ExAws.Operation.Query.t
   def list_stacks(opts \\ []) do
-    transformed_stack_status_filters = maybe_format opts, :stack_status_filters
+    stack_status_filters = maybe_format opts, :stack_status_filters
 
     query_params =
-      Enum.concat([transformed_stack_status_filters,
+      Enum.concat([stack_status_filters,
       [{"Next_Token", opts[:next_token]}]])
       |> filter_nil_params
 
@@ -411,9 +413,9 @@ defmodule ExAws.Cloudformation do
     }
   end
 
-  ############################
-  ### Transform Functions ###
-  ##########################
+  ########################
+  ### Format Functions ###
+  ########################
 
   defp format_request(:skip_resources, resources) do
     build_indexed_params("ResourcesToSkip.member.{i}", resources)

@@ -133,22 +133,21 @@ defmodule ExAws.EC2 do
   ]
   @spec create_volume(availability_zone :: binary, opts :: create_volume_opts) :: ExAws.Operation.RestQuery.t
   def create_volume(availability_zone, opts \\ []) do
-    normal_params = opts
+    normalized_params = opts
     |> Keyword.delete(:tag_specifications)
     |> Keyword.delete(:volume_type)
     |> normalize_opts
     |> Map.merge(%{"AvailabilityZone" => availability_zone})
 
 
-    tag_specifications_params = maybe_format opts, :tag_specifications
+    tag_specifications = maybe_format opts, :tag_specifications
     
-    
-    volume_type_params = maybe_format opts, :volume_type
+    volume_type = maybe_format opts, :volume_type
 
     create_volume_params = Enum.concat([
-      normal_params,
-      tag_specifications_params,
-      volume_type_params
+      normalized_params,
+      tag_specifications,
+      volume_type
     ])
     |> Enum.into(%{})
 
@@ -198,7 +197,7 @@ defmodule ExAws.EC2 do
   ]
   @spec modify_volume(volume_id :: binary, opts :: modify_volume_opts) :: ExAws.Operation.RestQuery.t
   def modify_volume(volume_id, opts \\ []) do
-    normal_params = opts
+    normalized_params = opts
     |> Keyword.delete(:volume_type)
     |> normalize_opts
     |> Map.merge(%{"VolumeId" => volume_id})
@@ -206,7 +205,7 @@ defmodule ExAws.EC2 do
     volume_type_param = maybe_format opts, :volume_type
 
     modify_volume_params =
-      Enum.concat([volume_type_param, normal_params])
+      Enum.concat([normalized_params, volume_type_param])
       |> Enum.into(%{})
 
     request(:post, :modify_volume, modify_volume_params)
