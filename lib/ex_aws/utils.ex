@@ -176,9 +176,9 @@ defmodule ExAws.Utils do
 
   defmacro maybe_format(argument, format_name) do
     quote do
-      case unquote(argument)[ unquote(format_name) ] do
+      case unquote(argument)[unquote(format_name)] do
         nil -> []
-        value -> format_request( unquote(format_name), value )
+        value -> format_request(unquote(format_name), value)
       end
     end
   end
