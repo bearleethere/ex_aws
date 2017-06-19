@@ -409,12 +409,6 @@ defmodule ExAws.Cloudformation do
     }
   end
 
-  defp filter_nil_params(opts) do
-    opts
-    |> Enum.reject(fn {_key, value} -> value == nil end)
-    |> Enum.into(%{})
-  end
-
   ############################
   ### Transform Functions ###
   ##########################
@@ -424,31 +418,25 @@ defmodule ExAws.Cloudformation do
   end
 
   defp transform(:stack_status_filters, filters) do
-    filters_strings =
-      filters
-        |> Enum.map(fn filter -> upcase(filter) end)
-
-    build_indexed_params("StackStatusFilter.member.{i}", filters_strings)
+    build_indexed_params("StackStatusFilter.member.{i}", filters |> Enum.map(&upcase/1))
   end
 
   defp transform(:capabilities, capabilities) do
-    capabilities_strings =
-      capabilities
-        |> Enum.map(fn capability -> upcase(capability) end)
-
-    build_indexed_params("Capabilities.member.{i}", capabilities_strings)
+    build_indexed_params("Capabilities.member.{i}", capabilities |> Enum.map(&upcase/1))
   end
 
   defp transform(:parameters, parameters) do
-    parameter_keys     = for param <- parameters, do: param[:parameter_key]
-    parameter_value    = for param <- parameters, do: param[:parameter_value]
-    use_previous_value = for param <- parameters, do: param[:use_previous_value]
+    indexed_params =
+      build_indexed_params([
+        {"Parameters.member.{i}.ParameterKey",
+          parameters |> Enum.map(fn param -> param[:parameter_key] end)},
+        {"Parameters.member.{i}.ParameterValue",
+          parameters |> Enum.map(fn param -> param[:parameter_value] end)},
+        {"Parameters.member.{i}.UsePreviousValue",
+          parameters |> Enum.map(fn param -> param[:use_previous_value] end)}
+      ])
 
-    build_indexed_params([
-      {"Parameters.member.{i}.ParameterKey", parameter_keys},
-      {"Parameters.member.{i}.ParameterValue", parameter_value},
-      {"Parameters.member.{i}.UsePreviousValue", use_previous_value}])
-    |> filter_nil_params
+    filter_nil_params(indexed_params)
   end
 
   defp transform(:notification_arns, notification_arns) do
@@ -457,13 +445,15 @@ defmodule ExAws.Cloudformation do
 
 
   defp transform(:tags, tags) do
-    keys   = for {key, _}   <- tags, do: Atom.to_string(key)
-    values = for {_, value} <- tags, do: value
+    indexed_params =
+      build_indexed_params([
+        {"Tags.member.{i}.Key",
+          tags |> Enum.map(fn {key, _} -> Atom.to_string(key) end)},
+        {"Tags.member.{i}.Value",
+          tags |> Enum.map(fn {_, value} -> value end)}
+      ])
 
-    build_indexed_params([
-      {"Tags.member.{i}.Key", keys},
-      {"Tags.member.{i}.Value", values}])
-    |> filter_nil_params
+    filter_nil_params(indexed_params)
   end
 
   defp transform(:resource_types, resource_types) do

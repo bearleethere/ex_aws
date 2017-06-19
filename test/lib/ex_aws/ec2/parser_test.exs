@@ -42,8 +42,32 @@ defmodule ExAws.EC2.ParserTest do
     assert parsed_doc[:status] == "detaching"
   end
 
+  test "parsing create_volume response" do
+    resp = """
+    <CreateVolumeResponse xmlns="http://ec2.amazonaws.com/doc/2016-11-15/">
+      <requestId>59dbff89-35bd-4eac-99ed-be587EXAMPLE</requestId>
+      <volumeId>vol-1234567890abcdef0</volumeId>
+      <size>80</size>
+      <snapshotId/>
+      <availabilityZone>us-east-1a</availabilityZone>
+      <status>creating</status>
+      <createTime>YYYY-MM-DDTHH:MM:SS.000Z</createTime>
+      <volumeType>standard</volumeType>
+      <encrypted>true</encrypted>
+    </CreateVolumeResponse>
+    """
+    |> to_success
 
-  test "parsing delete_volume_response" do
+    {:ok, %{body: parsed_doc}} = Parsers.parse(resp, :create_volume, nil)
+    assert parsed_doc[:volume_id] == "vol-1234567890abcdef0"
+    assert parsed_doc[:size] == "80"
+    assert parsed_doc[:availability_zone] == "us-east-1a"
+    assert parsed_doc[:status] == "creating"
+    assert parsed_doc[:volume_type] == "standard"
+  end
+
+
+  test "parsing delete_volume response" do
     resp = """
     <DeleteVolumeResponse xmlns="http://ec2.amazonaws.com/doc/2016-11-15/">
       <requestId>59dbff89-35bd-4eac-99ed-be587EXAMPLE</requestId>
@@ -55,6 +79,37 @@ defmodule ExAws.EC2.ParserTest do
     {:ok, %{body: parsed_doc}} = Parsers.parse(resp, :delete_volume, nil)
     assert parsed_doc[:return] == "true" # WTF >_< Seriously "return"? Of all of the names they could have came up with...
   end
+
+
+  test "parsing modify_volume response" do
+    resp = """
+    <ModifyVolumeResponse xmlns="http://ec2.amazonaws.com/doc/2016-11-15/">
+      <requestId>5jkdf074-37ed-4004-8671-a78ee82bf1cbEXAMPLE</requestId>
+      <volumeModification>
+        <targetIops>10000</targetIops>
+        <originalIops>300</originalIops>
+        <modificationState>modifying</modificationState>
+        <targetSize>200</targetSize>
+        <targetVolumeType>io1</targetVolumeType>
+        <volumeId>vol-1234567890EXAMPLE</volumeId>
+        <progress>0</progress>
+        <startTime>2017-01-19T23:58:04.922Z</startTime>
+        <originalSize>100</originalSize>
+        <originalVolumeType>gp2</originalVolumeType>
+      </volumeModification>
+  </ModifyVolumeResponse>
+  """
+  |> to_success
+
+  {:ok, %{body: parsed_doc}} = Parsers.parse(resp, :modify_volume, nil)
+  assert parsed_doc[:target_iops] == "10000"
+  assert parsed_doc[:original_iops] == "300"
+  assert parsed_doc[:modification_state] == "modifying"
+  assert parsed_doc[:target_size] == "200"
+  assert parsed_doc[:progress] == "0"
+  assert parsed_doc[:target_volume_type] == "io1"
+  assert parsed_doc[:original_size] == "100"
+end
 
 
   test "parsing error" do

@@ -109,29 +109,53 @@ defmodule ExAws.Utils do
     end)
   end
 
-  def build_indexed_params(key_template, values) when is_list(values) do
-    case String.split(key_template, "{i}") do
+
+
+  # TODO CLEAN UP build_indexed_params
+  defp add_prefix(prefix, list), do: Enum.map(list, fn {key, value} -> {prefix <> "." <> key, value} end)
+
+  def build_indexed_params(key, values) when is_list(values) do
+    case String.split(key, "{i}") do
       [prefix, suffix] ->
         values
-        |> Enum.with_index(1)
-        |> Enum.map(fn {value, i} -> {prefix <> "#{i}" <> suffix, value} end)
+        |> Stream.with_index(1)
+        |> Stream.map(fn {value, i} -> {prefix <> "#{i}" <> suffix, value} end)
+        |> Stream.flat_map(fn
 
-      _ -> raise ArgumentError, "The Argument key_template is invalid.
-      Expected a string with exactly one location for an index, got: \"#{key_template}\"
-      Example valid key_template: \"Tags.member.{i}.Key\""
+          {key, kv_pairs} when is_list(kv_pairs) -> # recuse over nested key value pairs
+            add_prefix(key, kv_pairs) |> build_indexed_params
+
+          {key, value} ->
+            [{key, value}]
+
+        end)
+        |> Enum.to_list
+
+      _ -> raise ArgumentError, "The Argument key is invalid.
+      Expected a string with exactly one location for an index, got: \"#{key}\"
+      Example valid key: \"Tags.member.{i}.Key\""
     end
   end
-
-  def build_indexed_params(key_template, value), do: build_indexed_params(key_template, [value])
-
-  def build_indexed_params(key_templates) when is_list(key_templates) do
-    Enum.flat_map(key_templates, fn {key_template, values} -> build_indexed_params(key_template, values) end)
+  
+  def build_indexed_params(key, value), do: build_indexed_params(key, [value])
+  def build_indexed_params(key_values_list) do
+    key_values_list
+    |> Enum.flat_map(fn
+      {key, values} -> build_indexed_params(key, values)
+    end)
   end
+
 
   def normalize_opts(opts) do
     opts
     |> Enum.into(%{})
     |> camelize_keys
+  end
+
+  def filter_nil_params(opts) do
+    opts
+    |> Enum.reject(fn {_key, value} -> value == nil end)
+    |> Enum.into(%{})
   end
 
 end

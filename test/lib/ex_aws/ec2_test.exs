@@ -1,21 +1,121 @@
 defmodule ExAws.EC2Test do
   use ExUnit.Case, async: true
   alias ExAws.EC2
+  alias ExAws.Operation.RestQuery
 
   @version "2015-10-01"
 
-  defp query(action, params \\ %{}) do
+  defp build_query(http_method, action, params \\ %{}) do
     action_param = action |> Atom.to_string |> Macro.camelize
-    
 
-    %Query{
+    %RestQuery{
+      http_method: http_method,
       params: params |> Map.merge(%{"Version" => @version, "Action" => action_param}),
       path: "/",
-      service: :cloudformation,
+      service: :ec2,
       action: action,
-      parser: &ExAws.Cloudformation.Parsers.parse/3
+      parser: &ExAws.EC2.Parsers.parse/3
     }
   end
+
+  test "attach_volume no additional params" do
+    expected = build_query(:post, :attach_volume, %{
+      "InstanceId" => "i-123456",
+      "VolumeId" => "vol-123456",
+      "Device" => "/dev/sdb"
+      })
+
+    assert expected == EC2.attach_volume("i-123456", "vol-123456", "/dev/sdb")
+  end
+
+  test "attach_volume with dry_run" do
+    expected = build_query(:post, :attach_volume, %{
+      "InstanceId" => "i-123456",
+      "VolumeId" => "vol-123456",
+      "Device" => "/dev/sdb",
+      "DryRun" => false
+    })
+
+    assert expected == EC2.attach_volume("i-123456", "vol-123456", "/dev/sdb", [dry_run: false])
+  end
+
+  test "detach_volume no additional params" do
+    expected = build_query(:post, :detach_volume, %{"VolumeId" => "vol-123456"})
+
+    assert expected == EC2.detach_volume("vol-123456")
+  end
+
+  test "detach_volume with force and instance id params" do
+    expected = build_query(:post, :detach_volume, %{
+      "VolumeId" => "vol-123456",
+      "Force" => false,
+      "InstanceId" => "i-123456"
+    })
+
+    assert expected == EC2.detach_volume("vol-123456", [force: false, instance_id: "i-123456"])
+  end
+
+  test "delete_volume with no additional params" do
+    expected = build_query(:post, :delete_volume, %{"VolumeId" => "vol-123456"})
+
+    assert expected == EC2.delete_volume("vol-123456")
+  end
+
+  test "delete_volume with dry_run param" do
+    expected = build_query(:post, :delete_volume, %{
+      "VolumeId" => "vol-123456",
+      "DryRun" => true})
+
+    assert expected == EC2.delete_volume("vol-123456", [dry_run: true])
+  end
+
+  test "create_volume test with tag specifications" do
+    expected = build_query(:post, :create_volume, %{
+      "AvailabilityZone" => "us-east-1a",
+      "TagSpecification.1.ResourceType" => "volume",
+      "TagSpecification.1.Tag.1.Key" => "tag_key_1",
+      "TagSpecification.1.Tag.1.Value" => "tag_value_1",
+      "TagSpecification.1.Tag.2.Key" => "tag_key_2",
+      "TagSpecification.1.Tag.2.Value" => "tag_value_2"
+      })
+
+      assert expected == EC2.create_volume("us-east-1a",
+        [tag_specifications: [
+          volume:
+            [tag_key_1: "tag_value_1",
+             tag_key_2: "tag_value_2"]]
+        ])
+  end
+
+  test "create_volume test with iops, snapshot ID and volume type" do
+    expected = build_query(:post, :create_volume, %{
+      "AvailabilityZone" => "us-east-1a",
+      "SnapshotId" => "snap-123456",
+      "VolumeType" => "io1",
+      "Iops" => 3000
+    })
+
+    assert expected == EC2.create_volume("us-east-1a",
+      [snapshot_id: "snap-123456", volume_type: :io1, iops: 3000])
+  end
+
+  test "modify_volume test" do
+    expected = build_query(:post, :modify_volume, %{"VolumeId" => "vol-123456"})
+    assert expected == EC2.modify_volume("vol-123456")
+  end
+
+  test "modify_volume test with iops, size, and volume type" do
+    expected = build_query(:post, :modify_volume, %{
+      "VolumeId" => "vol-123456",
+      "Iops" => 3000,
+      "Size" => 1024,
+      "VolumeType" => "io1"
+    })
+
+    assert expected == EC2.modify_volume("vol-123456",
+      [iops: 3000, size: 1024, volume_type: :io1])
+  end
+
 end
 
 # # defmodule Test.Dummy.EC2 do

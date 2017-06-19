@@ -46,6 +46,10 @@ defmodule ExAws.EC2 do
 
   @type filter :: {name :: binary | atom, value :: binary | atom | [binary | atom]}
 
+  #####################
+  # Volume Operations #
+  #####################
+
   @doc """
   Attaches a volume to a specified instance
 
@@ -101,10 +105,59 @@ defmodule ExAws.EC2 do
 
 
   @doc """
+  Creates an EBS volume that can be attached to an instance in the same
+  Availability Zone
+
+  Doc: http://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_CreateVolume.html
+  """
+  @type volume_type ::
+    :standard | :io1 | :gp2 | :sc1 | :st1
+  @type resource_type ::
+    :customer_gateway | :dhcp_options | :image | :instance | :internet_gateway |
+    :network_acl | :network_interface | :reserved_instances | :route_table | :snapshot |
+    :spot_instances_request | :subnet | :security_group | :volume | :vpc | :vpn_connection |
+    :vpn_gateway
+  @type tag :: {key :: atom, value :: binary}
+  @type tag_specification :: {
+    resource_type :: resource_type,
+    tags :: [tag, ...]
+  }
+  @type create_volume_opts :: [
+    dry_run: boolean,
+    encrypted: boolean,
+    iops: integer,
+    kms_key_id: binary,
+    size: integer,
+    snapshot_id: binary,
+    tag_specifications: [tag_specification, ...],
+    volume_type: volume_type
+  ]
+  @spec create_volume(availability_zone :: binary, opts :: create_volume_opts) :: ExAws.Operation.RestQuery.t
+  def create_volume(availability_zone, opts \\ []) do
+    normal_params = opts
+    |> Keyword.delete(:tag_specifications)
+    |> Keyword.delete(:volume_type)
+    |> normalize_opts
+    |> Map.merge(%{"AvailabilityZone" => availability_zone})
+
+    tag_specifications_params = maybe_transform(:tag_specifications, opts[:tag_specifications])
+    volume_type_params = maybe_transform(:volume_type, opts[:volume_type])
+
+    create_volume_params = Enum.concat([
+      normal_params,
+      tag_specifications_params,
+      volume_type_params
+    ])
+    |> Enum.into(%{})
+
+    request(:post, :create_volume, create_volume_params)
+  end
+
+  @doc """
   Deletes a specified volume
 
   Doc: http://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_DeleteVolume.html
-  
+
   Examples:
   ```
   EC2.delete_volume("vol-123456")
@@ -124,6 +177,39 @@ defmodule ExAws.EC2 do
   end
 
 
+  @doc """
+  Modifies a specified volume.
+
+  Doc: http://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_ModifyVolume.html
+
+  Examples:
+  ```
+  EC2.modify_volume("vol-123456", [iops: 3000, size: 1024, volume_type: :io1])
+  ```
+  """
+  @type modify_volume_opts :: [
+    dry_run: boolean,
+    iops: integer,
+    size: integer,
+    volume_type: volume_type
+  ]
+  @spec modify_volume(volume_id :: binary, opts :: modify_volume_opts) :: ExAws.Operation.RestQuery.t
+  def modify_volume(volume_id, opts \\ []) do
+    normal_params = opts
+    |> Keyword.delete(:volume_type)
+    |> normalize_opts
+    |> Map.merge(%{"VolumeId" => volume_id})
+
+    volume_type_param = maybe_transform(:volume_type, opts[:volume_type])
+
+    modify_volume_params =
+      Enum.concat([volume_type_param, normal_params])
+      |> Enum.into(%{})
+
+    request(:post, :modify_volume, modify_volume_params)
+  end
+
+
   ####################
   # Helper Functions #
   ####################
@@ -137,6 +223,50 @@ defmodule ExAws.EC2 do
       action: action,
       parser: &ExAws.EC2.Parsers.parse/3
     }
+  end
+
+  #######################
+  # Transform Functions #
+  #######################
+
+  defp transform(:tags, tags) do
+    keys   = for {key, _}   <- tags, do: Atom.to_string(key)
+    values = for {_, value} <- tags, do: value
+
+    build_indexed_params([
+      {"Tag.{i}.Key", keys},
+      {"Tag.{i}.Value", values}])
+    |> filter_nil_params
+  end
+
+  defp transform(:tag_specifications, tag_specs) do
+    split_keys_and_values = fn tag_spec ->
+        [ {"{i}.Key",
+            tag_spec |> Enum.map(fn {key, _} -> Atom.to_string(key) end)},
+          {"{i}.Value",
+            tag_spec |> Enum.map(fn {_, value} -> value end)} ]
+    end
+
+    indexed_params =
+      build_indexed_params([
+        {"TagSpecification.{i}.ResourceType",
+          tag_specs |> Enum.map(fn {resource_type, _} -> Atom.to_string(resource_type) end)},
+        {"TagSpecification.{i}.Tag",
+          tag_specs |> Enum.map(fn {_, tag_spec} -> split_keys_and_values.(tag_spec) end)}
+      ])
+
+    filter_nil_params(indexed_params)
+  end
+
+  defp transform(:volume_type, volume_type) do
+    [{"VolumeType", volume_type |> Atom.to_string}]
+  end
+
+  defp maybe_transform(transformation_type, value) when is_atom(transformation_type) do
+    case value do
+        nil -> %{}
+      value -> transform(transformation_type, value)
+    end
   end
 
 
