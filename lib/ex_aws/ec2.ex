@@ -204,6 +204,7 @@ defmodule ExAws.EC2 do
 
     volume_type_param = maybe_format opts, :volume_type
 
+
     modify_volume_params =
       Enum.concat([normalized_params, volume_type_param])
       |> Enum.into(%{})
