@@ -129,12 +129,8 @@ defmodule ExAws.Utils do
       {prefix <> "." <> maybe_camelize(key), value} 
     end)
   end
-  defp maybe_camelize(key) do
-    case key do
-      key when is_atom(key) -> camelize_key(key)
-      key -> key
-    end
-  end
+
+
   # NOTE: build_indexed_params is not tail call optimized 
   # but it is unlikely that any AWS params will ever
   # be nested enough for this to  cause a stack overflow
@@ -191,5 +187,10 @@ defmodule ExAws.Utils do
       end
     end
   end
+
+  def maybe_camelize(elem)  when is_atom(elem),     do: camelize_key(elem)
+  def maybe_camelize(elem)  when is_bitstring(elem),do: elem
+  def maybe_stringify(elem) when is_atom(elem),     do: Atom.to_string(elem)
+  def maybe_stringify(elem) when is_bitstring(elem),do: elem
 
 end
