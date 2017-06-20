@@ -232,39 +232,26 @@ defmodule ExAws.EC2 do
   ####################
 
   defp format_request(:tags, tags) do
-    keys   = for {key, _}   <- tags, do: Atom.to_string(key)
-    values = for {_, value} <- tags, do: value
+    tags = for {key, value} <- tags, do: [key: Atom.to_string(key), value: value]
 
-    build_indexed_params([
-      {"Tag.{i}.Key", keys},
-      {"Tag.{i}.Value", values}])
+    build_indexed_params("Tag", tags)
     |> filter_nil_params
   end
 
   defp format_request(:tag_specifications, tag_specs) do
-    split_keys_and_values = fn tag_spec ->
-        [ {"{i}.Key",
-            tag_spec |> Enum.map(fn {key, _} -> Atom.to_string(key) end)},
-          {"{i}.Value",
-            tag_spec |> Enum.map(fn {_, value} -> value end)} ]
+    tag_specs = for {resource_type, tags} <- tag_specs do
+      [ resource_type: Atom.to_string(resource_type),
+        tag: for {key, value} <- tags do [key: Atom.to_string(key), value: value] end ]
     end
-
-    indexed_params =
-      build_indexed_params([
-        {"TagSpecification.{i}.ResourceType",
-          tag_specs |> Enum.map(fn {resource_type, _} -> Atom.to_string(resource_type) end)},
-        {"TagSpecification.{i}.Tag",
-          tag_specs |> Enum.map(fn {_, tag_spec} -> split_keys_and_values.(tag_spec) end)}
-      ])
-
-    filter_nil_params(indexed_params)
+    
+    build_indexed_params("TagSpecification", tag_specs)
+    |> filter_nil_params
   end
 
 
   defp format_request(:volume_type, volume_type) do
     [{"VolumeType", volume_type |> Atom.to_string}]
   end
-
 
 
   # @type datetime :: {

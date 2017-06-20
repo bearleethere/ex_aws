@@ -161,6 +161,7 @@ defmodule ExAws.Cloudformation do
       maybe_format opts, key
     end)
 
+
     # TODO fix normalize_opts so this isn't needed
     other_params = 
       [ {"StackName", stack_name},
@@ -368,6 +369,7 @@ defmodule ExAws.Cloudformation do
   def list_stacks(opts \\ []) do
     stack_status_filters = maybe_format opts, :stack_status_filters
 
+    
     query_params =
       Enum.concat([stack_status_filters,
       [{"Next_Token", opts[:next_token]}]])
@@ -418,54 +420,40 @@ defmodule ExAws.Cloudformation do
   ########################
 
   defp format_request(:skip_resources, resources) do
-    build_indexed_params("ResourcesToSkip.member.{i}", resources)
+    build_indexed_params("ResourcesToSkip.member", resources)
   end
 
   defp format_request(:stack_status_filters, filters) do
-    build_indexed_params("StackStatusFilter.member.{i}", filters |> Enum.map(&upcase/1))
+    build_indexed_params("StackStatusFilter.member", filters |> Enum.map(&upcase/1))
   end
 
   defp format_request(:capabilities, capabilities) do
-    build_indexed_params("Capabilities.member.{i}", capabilities |> Enum.map(&upcase/1))
+    build_indexed_params("Capabilities.member", capabilities |> Enum.map(&upcase/1))
   end
 
   defp format_request(:parameters, parameters) do
-    indexed_params =
-      build_indexed_params([
-        {"Parameters.member.{i}.ParameterKey",
-          parameters |> Enum.map(fn param -> param[:parameter_key] end)},
-        {"Parameters.member.{i}.ParameterValue",
-          parameters |> Enum.map(fn param -> param[:parameter_value] end)},
-        {"Parameters.member.{i}.UsePreviousValue",
-          parameters |> Enum.map(fn param -> param[:use_previous_value] end)}
-      ])
-
-    filter_nil_params(indexed_params)
+    build_indexed_params("Parameters.member", parameters)
+    |> filter_nil_params
   end
 
   defp format_request(:notification_arns, notification_arns) do
-    build_indexed_params("NotificationARN.member.{i}", notification_arns)
+    build_indexed_params("NotificationARN.member", notification_arns)
   end
 
 
   defp format_request(:tags, tags) do
-    indexed_params =
-      build_indexed_params([
-        {"Tags.member.{i}.Key",
-          tags |> Enum.map(fn {key, _} -> Atom.to_string(key) end)},
-        {"Tags.member.{i}.Value",
-          tags |> Enum.map(fn {_, value} -> value end)}
-      ])
+    tags = for {key, value} <- tags, do: [key: Atom.to_string(key), value: value]
 
-    filter_nil_params(indexed_params)
+    build_indexed_params("Tags.member", tags)
+    |> filter_nil_params
   end
 
   defp format_request(:resource_types, resource_types) do
-    build_indexed_params("ResourceTypes.member.{i}", resource_types)
+    build_indexed_params("ResourceTypes.member", resource_types)
   end
 
   defp format_request(:retain_resources, retain_resources) do
-    build_indexed_params("RetainResources.member.{i}", retain_resources)
+    build_indexed_params("RetainResources.member", retain_resources)
   end
 
   defp format_request(:template_stage, template_stage) do

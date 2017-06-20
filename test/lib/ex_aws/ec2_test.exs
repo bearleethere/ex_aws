@@ -73,17 +73,24 @@ defmodule ExAws.EC2Test do
     expected = build_query(:post, :create_volume, %{
       "AvailabilityZone" => "us-east-1a",
       "TagSpecification.1.ResourceType" => "volume",
-      "TagSpecification.1.Tag.1.Key" => "tag_key_1",
-      "TagSpecification.1.Tag.1.Value" => "tag_value_1",
-      "TagSpecification.1.Tag.2.Key" => "tag_key_2",
-      "TagSpecification.1.Tag.2.Value" => "tag_value_2"
+      "TagSpecification.1.Tag.1.Key" => "tag_key_foo",
+      "TagSpecification.1.Tag.1.Value" => "tag_value_foo",
+      "TagSpecification.1.Tag.2.Key" => "tag_key_bar",
+      "TagSpecification.1.Tag.2.Value" => "tag_value_bar",
+      
+      "TagSpecification.2.ResourceType" => "volume",
+      "TagSpecification.2.Tag.1.Key" => "tag_key_baz",
+      "TagSpecification.2.Tag.1.Value" => "tag_value_baz",
       })
 
       assert expected == EC2.create_volume("us-east-1a",
         [tag_specifications: [
           volume:
-            [tag_key_1: "tag_value_1",
-             tag_key_2: "tag_value_2"]]
+            [tag_key_foo: "tag_value_foo",
+             tag_key_bar: "tag_value_bar"],
+          volume: 
+            [tag_key_baz: "tag_value_baz"]
+          ] 
         ])
   end
 

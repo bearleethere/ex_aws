@@ -117,47 +117,56 @@ defmodule ExAws.Utils do
   end
 
 
+  [
+
+  ]
+
 
   # a build_indexed_params util, Adds prefix to nested indexed params 
   defp add_prefix(prefix, kv_pairs) do
     kv_pairs
-    |> Enum.map(fn {key_template, value} -> 
-      {prefix <> "." <> key_template, value} 
+    |> Enum.map(fn {key, value} -> 
+      {prefix <> "." <> maybe_camelize(key), value} 
     end)
+  end
+  defp maybe_camelize(key) do
+    case key do
+      key when is_atom(key) -> camelize_key(key)
+      key -> key
+    end
   end
   # NOTE: build_indexed_params is not tail call optimized 
   # but it is unlikely that any AWS params will ever
   # be nested enough for this to  cause a stack overflow
-  def build_indexed_params(key_template, values) when is_list(values) do
-    case String.split(key_template, "{i}") do
-      [prefix, suffix] ->
-        values
-        |> Stream.with_index(1)
-        |> Stream.map(fn {value, i} -> {prefix <> "#{i}" <> suffix, value} end)
-        |> Stream.flat_map(fn
-          # if there are nested key value pairs, recuse over nested kv_pairs by calling build_indexed_params again
-          {key, kv_pairs} when is_list(kv_pairs) -> 
-            add_prefix(key, kv_pairs) |> build_indexed_params
-            
-          {key, value} ->
-            [{key, value}]
-        end)
-        |> Enum.to_list
 
-      _ -> raise ArgumentError, "The Argument key_template is invalid.
-      Expected a string with exactly one location for an index, got: \"#{key_template}\"
-      Example valid key_template: \"Tags.member.{i}.Key\""
-    end
+  def build_indexed_params(key, values) when is_list(values) do
+    key = maybe_camelize(key)
+
+    values
+    |> Stream.with_index(1)
+    |> Stream.map(fn {value, i} -> 
+      {"#{key}.#{i}", value} end)
+    |> Stream.flat_map(fn
+      # if there are nested key value pairs, recuse over nested kv_pairs by calling build_indexed_params again
+      {key, kv_pairs} when is_list(kv_pairs) -> 
+        add_prefix(key, kv_pairs) |> build_indexed_params
+        
+      {key, value} ->
+        [{key, value}]
+    end)
+    |> Enum.to_list
   end
   # When only one key_template and value is passed  
-  def build_indexed_params(key_template, value) do
-    build_indexed_params(key_template, [value])
-  end
+  def build_indexed_params(key, value) when is_atom(key), 
+  do: [{camelize_key(key), value}]
+  def build_indexed_params(key, value) when is_bitstring(key), 
+  do: [{key, value}]
+
   # When multiple key_templates and values pairs are passed
   def build_indexed_params(kv_pairs) do
     kv_pairs
-    |> Enum.flat_map(fn {key_template, values} -> 
-      build_indexed_params(key_template, values)
+    |> Enum.flat_map(fn {key, values} -> 
+      build_indexed_params(key, values)
     end)
   end
 
