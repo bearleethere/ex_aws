@@ -18,6 +18,28 @@ defmodule ExAws.EC2Test do
     }
   end
 
+  test "describe_instance no additional params" do
+    expected = build_query(:get, :describe_instances, %{})
+    assert expected == EC2.describe_instances
+  end
+
+  test "describe instances with filters and instance Ids" do
+    expected = build_query(:get, :describe_instances, %{
+      "Filter.1.Name" => "tag",
+      "Filter.1.Value.1" => "Owner",
+      "Filter.2.Name" => "instance-type",
+      "Filter.2.Value.1" => "m1.small",
+      "Filter.2.Value.2" => "m1.large",
+      "InstanceId.1" => "i-12345",
+      "InstanceId.2" => "i-56789"
+      })
+
+    assert expected == EC2.describe_instances(
+    [filters: [tag: ["Owner"], "instance-type": ["m1.small", "m1.large"]],
+     instance_ids: ["i-12345", "i-56789"]
+    ])
+  end
+
   test "attach_volume no additional params" do
     expected = build_query(:post, :attach_volume, %{
       "InstanceId" => "i-123456",
@@ -77,7 +99,7 @@ defmodule ExAws.EC2Test do
       "TagSpecification.1.Tag.1.Value" => "tag_value_foo",
       "TagSpecification.1.Tag.2.Key" => "tag_key_bar",
       "TagSpecification.1.Tag.2.Value" => "tag_value_bar",
-      
+
       "TagSpecification.2.ResourceType" => "volume",
       "TagSpecification.2.Tag.1.Key" => "tag_key_baz",
       "TagSpecification.2.Tag.1.Value" => "tag_value_baz",
@@ -88,9 +110,9 @@ defmodule ExAws.EC2Test do
           volume:
             [tag_key_foo: "tag_value_foo",
              tag_key_bar: "tag_value_bar"],
-          volume: 
+          volume:
             [tag_key_baz: "tag_value_baz"]
-          ] 
+          ]
         ])
   end
 

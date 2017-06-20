@@ -43,7 +43,50 @@ defmodule ExAws.EC2 do
     :i2_xlarge   | :i2_2xlarge  | :i2_4xlarge  | :i2_8xlarge |
     :i3_large    | :i3_xlarge   | :i3_2xlarge  | :i3_4xlarge | :i3_8xlarge | :i3_16xlarge
 
-  @type filter :: {name :: binary | atom, value :: binary | atom | [binary | atom]}
+  @type filter :: {
+    name :: binary | atom,
+    value :: [binary,...]}
+
+  #######################
+  # Instance Operations #
+  #######################
+
+  @doc """
+  Describes one or more instances.
+  If you specify the instance IDs or filters, Amazon EC2 returns information for those instances.
+  If you do not specify an instance ID or filters, then it'll all the relevant instances
+
+  Example:
+  ```
+  # Get instances that are only of instance types "m1.small" and "m3.medium"
+  EC2.describe_instances([filters: ["instance-type": ["m1.small", "m3.medium"]]])
+  ```
+  """
+  @type describe_instances_opts :: [
+    dry_run: boolean,
+    filters: [filter, ...],
+    instance_ids: [binary, ...],
+    max_results: integer,
+    next_token: binary
+  ]
+  @spec describe_instances() :: ExAws.Operation.RestQuery.t
+  @spec describe_instances(opts :: describe_instances_opts) :: ExAws.Operation.RestQuery.t
+  def describe_instances(opts \\ []) do
+    query_params = opts
+    |> Keyword.delete(:filters)
+    |> Keyword.delete(:instance_ids)
+    |> normalize_opts
+
+    filters = maybe_format(opts, :filters)
+    instance_ids = maybe_format(opts, :instance_ids)
+
+    describe_instance_params =
+      Enum.concat([query_params, filters, instance_ids])
+      |> Enum.into(%{})
+
+    request(:get, :describe_instances, describe_instance_params)
+  end
+
 
   #####################
   # Volume Operations #
@@ -141,7 +184,7 @@ defmodule ExAws.EC2 do
 
 
     tag_specifications = maybe_format opts, :tag_specifications
-    
+
     volume_type = maybe_format opts, :volume_type
 
     create_volume_params = Enum.concat([
@@ -231,6 +274,17 @@ defmodule ExAws.EC2 do
   # Format Functions #
   ####################
 
+  defp format_request(:filters, filters) do
+    filters = for{name, values} <- filters,
+      do: [name: maybe_stringify(name), value: values]
+
+    build_indexed_params("Filter", filters)
+  end
+
+  defp format_request(:instance_ids, instance_ids) do
+    build_indexed_params("InstanceId", instance_ids)
+  end
+
   defp format_request(:tags, tags) do
     tags = for {key, value} <- tags, do: [key: Atom.to_string(key), value: value]
 
@@ -240,10 +294,10 @@ defmodule ExAws.EC2 do
 
   defp format_request(:tag_specifications, tag_specs) do
     tag_specs = for {resource_type, tags} <- tag_specs do
-      [ resource_type: Atom.to_string(resource_type),
-        tag: for {key, value} <- tags do [key: Atom.to_string(key), value: value] end ]
+      [resource_type: Atom.to_string(resource_type),
+       tag: for {key, value} <- tags do [key: Atom.to_string(key), value: value] end]
     end
-    
+
     build_indexed_params("TagSpecification", tag_specs)
     |> filter_nil_params
   end
