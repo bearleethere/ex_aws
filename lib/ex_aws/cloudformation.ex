@@ -163,7 +163,7 @@ defmodule ExAws.Cloudformation do
 
 
     # TODO fix normalize_opts so this isn't needed
-    other_params = 
+    other_params =
       [ {"StackName", stack_name},
         {"TemplateURL", opts[:template_url]},
         {"RoleARN", opts[:role_arn]} ]
@@ -203,7 +203,13 @@ defmodule ExAws.Cloudformation do
   def delete_stack(stack_name, opts \\ []) do
     retain_resources = maybe_format opts, :retain_resources
 
-    query_params = Enum.concat([retain_resources, [{"StackName", stack_name}, {"RoleARN", opts[:role_arn]}]])
+    query_params = Enum.concat([
+      retain_resources,
+      [
+       {"StackName", stack_name},
+       {"RoleARN", opts[:role_arn]}
+      ]
+    ])
     |> filter_nil_params
 
     request(:delete_stack, query_params)
@@ -369,7 +375,7 @@ defmodule ExAws.Cloudformation do
   def list_stacks(opts \\ []) do
     stack_status_filters = maybe_format opts, :stack_status_filters
 
-    
+
     query_params =
       Enum.concat([stack_status_filters,
       [{"Next_Token", opts[:next_token]}]])
