@@ -152,7 +152,186 @@ defmodule ExAws.EC2.ParserTest do
     assert ebs[:status] == "attached"
   end
 
-  test "parsing attach volume response" do
+  test "parsing describe_instance_status response" do
+    resp = """
+    <DescribeInstanceStatusResponse xmlns="http://ec2.amazonaws.com/doc/2016-11-15/">
+      <requestId>3be1508e-c444-4fef-89cc-0b1223c4f02fEXAMPLE</requestId>
+      <instanceStatusSet>
+        <item>
+          <instanceId>i-1234567890abcdef0</instanceId>
+          <availabilityZone>us-east-1d</availabilityZone>
+          <instanceState>
+            <code>16</code>
+            <name>running</name>
+          </instanceState>
+          <systemStatus>
+            <status>impaired</status>
+            <details>
+              <item>
+                <name>reachability</name>
+                <status>failed</status>
+                <impairedSince>YYYY-MM-DDTHH:MM:SS.000Z</impairedSince>
+              </item>
+            </details>
+          </systemStatus>
+          <instanceStatus>
+            <status>impaired</status>
+            <details>
+              <item>
+                <name>reachability</name>
+                <status>failed</status>
+                <impairedSince>YYYY-MM-DDTHH:MM:SS.000Z</impairedSince>
+              </item>
+            </details>
+          </instanceStatus>
+          <eventsSet>
+            <item>
+              <code>instance-retirement</code>
+              <description>The instance is running on degraded hardware</description>
+              <notBefore>YYYY-MM-DDTHH:MM:SS+0000</notBefore>
+              <notAfter>YYYY-MM-DDTHH:MM:SS+0000</notAfter>
+            </item>
+          </eventsSet>
+        </item>
+      </instanceStatusSet>
+    </DescribeInstanceStatusResponse>
+    """
+    |> to_success
+
+    {:ok, %{body: parsed_doc}} = Parsers.parse(resp, :describe_instance_status, nil)
+    assert parsed_doc[:instances_statuses] |> length == 1
+
+    instance_status = List.first(parsed_doc[:instances_statuses])
+    assert instance_status[:instance_id] == "i-1234567890abcdef0"
+    assert instance_status[:availability_zone] == "us-east-1d"
+
+    system_status = instance_status[:system_status]
+    assert system_status[:status] == "impaired"
+
+    system_status_detail = List.first(system_status[:details])
+    assert system_status_detail[:name] ==  "reachability"
+    assert system_status_detail[:status] == "failed"
+
+    event = List.first(instance_status[:events])
+    assert event[:code] == "instance-retirement"
+    assert event[:description] == "The instance is running on degraded hardware"
+  end
+
+  test "parsing terminate_instances response" do
+    resp = """
+    <TerminateInstancesResponse xmlns="http://ec2.amazonaws.com/doc/2016-11-15/">
+      <requestId>59dbff89-35bd-4eac-99ed-be587EXAMPLE</requestId>
+      <instancesSet>
+        <item>
+          <instanceId>i-1234567890abcdef0</instanceId>
+          <currentState>
+            <code>32</code>
+            <name>shutting-down</name>
+          </currentState>
+          <previousState>
+            <code>16</code>
+            <name>running</name>
+          </previousState>
+        </item>
+      </instancesSet>
+    </TerminateInstancesResponse>
+    """
+    |> to_success
+
+    {:ok, %{body: parsed_doc}} = Parsers.parse(resp, :terminate_instances, nil)
+    instance = List.first(parsed_doc[:instances])
+    assert instance[:instance_id] == "i-1234567890abcdef0"
+
+    current_state = instance[:current_state]
+    assert current_state[:code] == "32"
+    assert current_state[:name] == "shutting-down"
+
+  end
+
+  test "parsing reboot_instances response" do
+    resp = """
+    <RebootInstancesResponse xmlns="http://ec2.amazonaws.com/doc/2016-11-15/">
+      <requestId>59dbff89-35bd-4eac-99ed-be587EXAMPLE</requestId>
+      <return>true</return>
+    </RebootInstancesResponse>
+    """
+    |> to_success
+
+    {:ok, %{body: parsed_doc}} = Parsers.parse(resp, :reboot_instances, nil)
+    assert parsed_doc[:return] == "true"
+    assert parsed_doc[:request_id] == "59dbff89-35bd-4eac-99ed-be587EXAMPLE"
+  end
+
+  test "parsing start_instances response" do
+    resp = """
+    <StartInstancesResponse xmlns="http://ec2.amazonaws.com/doc/2016-11-15/">
+      <requestId>59dbff89-35bd-4eac-99ed-be587EXAMPLE</requestId>
+      <instancesSet>
+        <item>
+          <instanceId>i-1234567890abcdef0</instanceId>
+          <currentState>
+            <code>0</code>
+            <name>pending</name>
+          </currentState>
+          <previousState>
+            <code>80</code>
+            <name>stopped</name>
+          </previousState>
+        </item>
+      </instancesSet>
+    </StartInstancesResponse>
+    """
+    |> to_success
+
+    {:ok, %{body: parsed_doc}} = Parsers.parse(resp, :start_instances, nil)
+    instance = List.first(parsed_doc[:instances])
+    assert instance[:instance_id] == "i-1234567890abcdef0"
+
+    current_state = instance[:current_state]
+    assert current_state[:code] == "0"
+    assert current_state[:name] == "pending"
+
+    previous_state = instance[:previous_state]
+    assert previous_state[:code] == "80"
+    assert previous_state[:name] == "stopped"
+  end
+
+  test "parsing stop_instances response" do
+    resp = """
+    <StopInstancesResponse xmlns="http://ec2.amazonaws.com/doc/2016-11-15/">
+      <requestId>59dbff89-35bd-4eac-99ed-be587EXAMPLE</requestId>
+      <instancesSet>
+        <item>
+          <instanceId>i-1234567890abcdef0</instanceId>
+          <currentState>
+            <code>64</code>
+            <name>stopping</name>
+          </currentState>
+          <previousState>
+            <code>16</code>
+            <name>running</name>
+          </previousState>
+        </item>
+      </instancesSet>
+    </StopInstancesResponse>
+    """
+    |> to_success
+
+    {:ok, %{body: parsed_doc}} = Parsers.parse(resp, :stop_instances, nil)
+    instance = List.first(parsed_doc[:instances])
+    assert instance[:instance_id] == "i-1234567890abcdef0"
+
+    current_state = instance[:current_state]
+    assert current_state[:code] == "64"
+    assert current_state[:name] == "stopping"
+
+    previous_state = instance[:previous_state]
+    assert previous_state[:code] == "16"
+    assert previous_state[:name] == "running"
+  end
+
+
+  test "parsing attach_volume response" do
     resp = """
     <AttachVolumeResponse xmlns="http://ec2.amazonaws.com/doc/2016-11-15/">
       <requestId>59dbff89-35bd-4eac-99ed-be587EXAMPLE</requestId>

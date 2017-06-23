@@ -88,6 +88,391 @@ defmodule ExAws.EC2 do
   end
 
 
+  @doc """
+  Describes the status of one or more instances. By default, only running
+  instances are described, unless specified otherwise.
+
+  Doc: http://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_DescribeInstanceStatus.html
+
+  Examples:
+  ```
+  # Get all instance statuses
+  EC2.describe_instance_status
+  ```
+  """
+  @type describe_instance_status_opts :: [
+    dry_run: boolean,
+    filters: [filter, ...],
+    include_all_instances: boolean,
+    instance_ids: [binary, ...],
+    max_results: integer,
+    next_token: binary
+  ]
+  @spec describe_instance_status() :: ExAws.Operation.RestQuery.t
+  @spec describe_instance_status(opts :: describe_instance_status_opts) :: ExAws.Operation.RestQuery.t
+  def describe_instance_status(opts \\ []) do
+    query_params = opts
+    |> Keyword.delete(:filters)
+    |> Keyword.delete(:instance_ids)
+    |> normalize_opts
+
+    filters = maybe_format(opts, :filters)
+    instance_ids = maybe_format(opts, :instance_ids)
+
+    describe_instance_status_params =
+      Enum.concat([query_params, filters, instance_ids])
+      |> Enum.into(%{})
+
+    request(:get, :describe_instance_status, describe_instance_status_params)
+  end
+
+
+  @doc """
+  Shuts down one or more instances. Terminated instances remain visible after
+  termination (for approximately one hour).
+
+  Doc: TODO
+  Examples: TODO
+  """
+  @type terminate_instances_opts :: [
+    dry_run: boolean
+  ]
+  @spec terminate_instances(instance_ids :: [binary, ...]) :: ExAws.Operation.RestQuery.t
+  @spec terminate_instances(instance_ids :: [binary, ...], opts :: terminate_instances_opts) :: ExAws.Operation.RestQuery.t
+  def terminate_instances(instance_ids, opts \\ []) do
+    terminate_instances_params = opts
+    |> normalize_opts
+    |> Map.merge(format_request(:instance_ids, instance_ids) |> Enum.into(%{}))
+
+    request(:post, :terminate_instances, terminate_instances_params)
+  end
+
+
+  @doc """
+  Requests a reboot of one or more instances. This operation is asynchronous; it
+  only queues a request to reboot the specified instances.
+
+  Doc: TODO
+  Examples: TODO
+  """
+  @type reboot_instances_opts :: [
+    dry_run: boolean
+  ]
+  @spec reboot_instances(instance_ids :: list(binary)) :: ExAws.Operation.RestQuery.t
+  @spec reboot_instances(instance_ids :: list(binary), opts :: reboot_instances_opts) :: ExAws.Operation.RestQuery.t
+  def reboot_instances(instance_ids, opts \\ []) do
+    reboot_instances_params = opts
+    |> normalize_opts
+    |> Map.merge(format_request(:instance_ids, instance_ids) |> Enum.into(%{}))
+
+    request(:post, :reboot_instances, reboot_instances_params)
+  end
+
+
+  @doc """
+  Starts an Amazon EBS-backed AMI that was previously stopped.
+
+  Doc: TODO
+  Examples:
+  ```
+  # Start instances i-123456 and i-987654
+  EC2.start_instances(["i-123456", "i-987654"])
+
+  # Start instance i-123456 with dry_run set to true
+  EC2.start_instances(["i-123456"], [dry_run: true])
+  ```
+  """
+  @type start_instances_opts :: [
+    additional_info: binary,
+    dry_run: boolean,
+  ]
+  @spec start_instances(instance_ids :: [binary, ...]) :: ExAws.Operation.RestQuery.t
+  @spec start_instances(instance_ids :: [binary, ...], opts :: start_instances_opts) :: ExAws.Operation.RestQuery.t
+  def start_instances(instance_ids, opts \\ []) do
+    start_instances_params = opts
+      |> normalize_opts
+      |> Map.merge(format_request(:instance_ids, instance_ids) |> Enum.into(%{}))
+
+    request(:post, :start_instances, start_instances_params)
+  end
+
+  @doc """
+  Stops an Amazon EBS-backed AMI that was previously started.
+
+  Doc: TODO
+  Examples:
+  ```
+  EC2.stop_instances(["i-123456"])
+  EC2.stop_instances(["i-123456", "i-1234abc"], [force: true])
+  ```
+  """
+  @type stop_instances_opts :: [
+    dry_run: boolean,
+    force: boolean
+  ]
+  @spec stop_instances(instance_ids :: [binary, ...]) :: ExAws.Operation.RestQuery.t
+  @spec stop_instances(instance_ids :: [binary, ...], opts :: stop_instances_opts) :: ExAws.Operation.RestQuery.t
+  def stop_instances(instance_ids, opts \\ []) do
+    stop_instances_params = opts
+      |> normalize_opts
+      |> Map.merge(format_request(:instance_ids, instance_ids) |> Enum.into(%{}))
+
+    request(:post, :stop_instances, stop_instances_params)
+  end
+
+
+  # @doc """
+  # Submits feedback about the status of an instance. The instance must be in the
+  # running state.
+  # """
+  # @type report_instance_status_opts :: [
+  #   description: binary,
+  #   dry_run: boolean,
+  #   end_time: binary,
+  #
+  #
+  #
+  # ]
+  # @spec report_instance_status(instance_ids :: [binary, ...], status :: binary) :: ExAws.Operation.RestQuery.t
+  # @spec report_instance_status(instance_ids :: [binary, ...], status :: binary, opts :: report_instance_status_opts) :: ExAws.Operation.RestQuery.t
+  # def report_instance_status(instance_ids, status, opts \\ []) do
+  #   query_params = opts
+  #   |> normalize_opts
+  #   |> Map.merge(%{
+  #     "Action"  => "ReportInstanceStatus",
+  #     "Version" => @version,
+  #     "Status"  => status
+  #     })
+  #   |> Map.merge(list_builder(instance_ids, "InstanceId", 1, %{}))
+  #
+  #   request(:get, "/", query_params)
+  # end
+
+  ##################
+  # AMI Operations #
+  ##################
+
+  # @type create_image_opts :: [
+  #   {:block_device_mapping, block_device_mapping_list}          |
+  #   {:description, binary}                                      |
+  #   {:dry_run, boolean}                                         |
+  #   {:no_reboot, boolean}
+  # ]
+  # @doc """
+  # Creates an Amazon EBS-backed AMI from an Amazon EBS-backed instance
+  # that is either running or stopped.
+  # """
+  # @spec create_image(instance_id :: binary, name :: binary) :: ExAws.Operation.RestQuery.t
+  # @spec create_image(instance_id :: binary, name :: binary, opts :: create_image_opts) :: ExAws.Operation.RestQuery.t
+  # def create_image(instance_id, name, opts \\ []) do
+  #   query_params = opts
+  #   |> normalize_opts
+  #   |> Map.merge(%{
+  #     "Action"     => "CreateImage",
+  #     "Version"    => @version,
+  #     "InstanceId" => instance_id,
+  #     "Name"       => name
+  #     })
+  #
+  #   request(:post, "/", query_params)
+  # end
+  #
+
+  @doc """
+  Initiates the copy of an AMI from the specified source region to the current
+  region. You specify the destination region by using its endpoint when
+  making the request.
+
+  Doc: http://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_CopyImage.html
+
+  Examples: TODO
+  TODO: Write parser
+  """
+  @type copy_image_opts :: [
+    client_token: binary,
+    description: binary,
+    dry_run: boolean,
+    encrypted: boolean,
+    kms_key_id: binary
+  ]
+  @spec copy_image(name :: binary, source_image_id :: binary, source_region :: binary) :: ExAws.Operation.RestQuery.t
+  @spec copy_image(name :: binary, source_image_id :: binary, source_region :: binary, opts :: copy_image_opts) :: ExAws.Operation.RestQuery.t
+  def copy_image(name, source_image_id, source_region, opts \\ []) do
+    query_params = opts
+    |> normalize_opts
+    |> Map.merge(%{
+      "Name"          => name,
+      "SourceImageId" => source_image_id,
+      "SourceRegion"  => source_region
+    })
+
+    request(:post, :copy_image, query_params)
+  end
+
+
+  @doc """
+  Describes one or more of the images (AMIs, AKIs, and ARIs) available to you.
+
+  Doc: http://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_DescribeImages.html
+
+  TODO: Write parser
+  Examples:
+  ```
+  EC2.describe_images
+  EC2.describe_images([image_ids: ["ami-1234567", "ami-test123"], owners: ["test_owner", "aws"]])
+  ```
+  """
+  @type describe_images_opts :: [
+    dry_run: boolean,
+    executable_by_list: [binary, ...],
+    filters: [filter, ...],
+    image_ids: [binary, ...],
+    owners: [binary, ...]
+  ]
+  @spec describe_images() :: ExAws.Operation.RestQuery.t
+  @spec describe_images(opts :: describe_images_opts) :: ExAws.Operation.RestQuery.t
+  def describe_images(opts \\ []) do
+    normalized_opts = opts
+    |> Keyword.delete(:filters)
+    |> Keyword.delete(:image_ids)
+    |> Keyword.delete(:owners)
+    |> Keyword.delete(:executable_by_list)
+    |> normalize_opts
+
+    filters = opts |> maybe_format(:filters)
+    image_ids = opts |> maybe_format(:image_ids)
+    owners = opts |> maybe_format(:owners)
+    executable_by_list = opts |> maybe_format(:executable_by_list)
+
+    describe_images_params =
+      Enum.concat([normalized_opts, image_ids, filters, owners, executable_by_list])
+      |> Enum.into(%{})
+
+    request(:get, :describe_images, describe_images_params)
+  end
+
+
+  @doc """
+  Describes the specified attribute of the specified AMI. You can specify
+  only one attribute at a time.
+  """
+  @type describe_image_attribute_opts :: [
+    dry_run: boolean
+  ]
+  @spec describe_image_attribute(image_id :: binary, attribute :: binary) :: ExAws.Operation.RestQuery.t
+  @spec describe_image_attribute(image_id :: binary, attribute :: binary, opts :: describe_image_attribute_opts) :: ExAws.Operation.RestQuery.t
+  def describe_image_attribute(image_id, attribute, opts \\ []) do
+    query_params = opts
+    |> normalize_opts
+    |> Map.merge(%{
+      "ImageId"   => image_id,
+      "Attribute" => attribute
+      })
+
+    request(:get, :describe_image_attribute, query_params)
+  end
+
+  # @type modify_image_attribute_opts :: [
+  #   {:attribute, binary}                                  |
+  #   {:description, attribute_value}                       |
+  #   {:dry_run, boolean}                                   |
+  #   {:launch_permission, launch_permission_modifications} |
+  #   {:operation_type, :add | :remove}                     |
+  #   {:product_code, :add | :remove}                       |
+  #   {:user_group, [binary]}                               |
+  #   {:value, binary}
+  # ]
+  # @doc """
+  # Modifies the specified attribute of the specified AMI. You can specify only
+  # one attribute at a time.
+  # """
+  # @spec modify_image_attribute(image_id :: binary) :: ExAws.Operation.RestQuery.t
+  # @spec modify_image_attribute(image_id :: binary, opts :: modify_image_attribute_opts) :: ExAws.Operation.RestQuery.t
+  # def modify_image_attribute(image_id, opts \\ []) do
+  #   query_params = opts
+  #   |> normalize_opts
+  #   |> Map.merge(%{
+  #     "Action"  => "ModifyImageAttribute",
+  #     "Version" => @version,
+  #     "ImageId" => image_id
+  #     })
+  #
+  #   request(:post, "/", query_params)
+  # end
+  #
+  # @type reset_image_attribute_opts :: [
+  #   {:dry_run, boolean}
+  # ]
+  # @doc """
+  # Resets an attribute of an AMI to its default value.
+  # """
+  # @spec reset_image_attribute(image_id :: binary, attribute :: binary) :: ExAws.Operation.RestQuery.t
+  # @spec reset_image_attribute(image_id :: binary, attribute :: binary, opts :: reset_image_attribute_opts) :: ExAws.Operation.RestQuery.t
+  # def reset_image_attribute(image_id, attribute, opts \\ []) do
+  #   query_params = opts
+  #   |> normalize_opts
+  #   |> Map.merge(%{
+  #     "Action"    => "ResetImageAttribute",
+  #     "Version"   => @version,
+  #     "ImageId"   => image_id,
+  #     "Attribute" => attribute
+  #     })
+  #
+  #   request(:post, "/", query_params)
+  # end
+  #
+  # @type register_image_opts :: [
+  #   {:architecture, :i386 | :x86_64}                            |
+  #   {:block_device_mapping, block_device_mapping_list}          |
+  #   {:description, binary}                                      |
+  #   {:dry_run, boolean}                                         |
+  #   {:image_location, binary}                                   |
+  #   {:kernel_id, binary}                                        |
+  #   {:ram_disk_id, binary}                                      |
+  #   {:root_device_name, binary}                                 |
+  #   {:sriov_net_support, binary}                                |
+  #   {:virtualization_type, binary}
+  # ]
+  # @doc """
+  # Registers an AMI. When you're creating an AMI, this is the final step you
+  # must complete before you can launch an instance from the AMI.
+  # """
+  # @spec register_image(name :: binary) :: ExAws.Operation.RestQuery.t
+  # @spec register_image(name :: binary, opts :: register_image_opts) :: ExAws.Operation.RestQuery.t
+  # def register_image(name, opts \\ []) do
+  #   query_params = opts
+  #   |> normalize_opts
+  #   |> Map.merge(%{
+  #     "Action"  => "RegisterImage",
+  #     "Version" => @version,
+  #     "Name"    => name
+  #     })
+  #
+  #   request(:post, "/", query_params)
+  # end
+  #
+  # @type deregister_image_opts :: [
+  #   {:dry_run, boolean}
+  # ]
+  # @doc """
+  # Deregisters the specified AMI. After you deregister an AMI, it can't be used
+  # to launch new instances.
+  # """
+  # @spec deregister_image(image_id :: binary) :: ExAws.Operation.RestQuery.t
+  # @spec deregister_image(image_id :: binary, opts :: deregister_image_opts) :: ExAws.Operation.RestQuery.t
+  # def deregister_image(image_id, opts \\ []) do
+  #   query_params = opts
+  #   |> normalize_opts
+  #   |> Map.merge(%{
+  #     "Action"  => "DeregisterImage",
+  #     "Version" => @version,
+  #     "ImageId" => image_id
+  #     })
+  #
+  #   request(:post, "/", query_params)
+  # end
+  #
+
   #####################
   # Volume Operations #
   #####################
@@ -155,9 +540,22 @@ defmodule ExAws.EC2 do
   @type volume_type ::
     :standard | :io1 | :gp2 | :sc1 | :st1
   @type resource_type ::
-    :customer_gateway | :dhcp_options | :image | :instance | :internet_gateway |
-    :network_acl | :network_interface | :reserved_instances | :route_table | :snapshot |
-    :spot_instances_request | :subnet | :security_group | :volume | :vpc | :vpn_connection |
+    :customer_gateway       |
+    :dhcp_options           |
+    :image                  |
+    :instance               |
+    :internet_gateway       |
+    :network_acl            |
+    :network_interface      |
+    :reserved_instances     |
+    :route_table            |
+    :snapshot               |
+    :spot_instances_request |
+    :subnet                 |
+    :security_group         |
+    :volume                 |
+    :vpc                    |
+    :vpn_connection         |
     :vpn_gateway
   @type tag :: {key :: atom, value :: binary}
   @type tag_specification :: {
@@ -240,18 +638,256 @@ defmodule ExAws.EC2 do
   ]
   @spec modify_volume(volume_id :: binary, opts :: modify_volume_opts) :: ExAws.Operation.RestQuery.t
   def modify_volume(volume_id, opts \\ []) do
-    normalized_params = opts
+    modify_volume_params = opts
     |> Keyword.delete(:volume_type)
     |> normalize_opts
     |> Map.merge(%{"VolumeId" => volume_id})
+    |> Map.merge(maybe_format(opts, :volume_type) |> Enum.into(%{}))
 
-    volume_type_param = maybe_format opts, :volume_type
-
-    modify_volume_params =
-      Enum.concat([normalized_params, volume_type_param])
-      |> Enum.into(%{})
+    # volume_type_param = maybe_format opts, :volume_type
+    #
+    # modify_volume_params =
+    #   Enum.concat([normalized_params, volume_type_param])
+    #   |> Enum.into(%{})
 
     request(:post, :modify_volume, modify_volume_params)
+  end
+
+  ###################
+  # Tags Operations #
+  ###################
+
+  @doc """
+  Describes one or more of the tags for your EC2 resources.
+
+  Doc: http://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_DescribeTags.html
+  NOTE: If you need to pass in filters, pay special attention to what is allowed to be
+  passed in in the doc.
+
+  Examples: TODO
+  TODO: write parser
+  ```
+  ```
+  """
+  @type describe_tags_opts :: [
+    dry_run: boolean,
+    filters: [filter, ...],
+    max_results: integer,
+    next_token: binary
+  ]
+  @spec describe_tags() :: ExAws.Operation.RestQuery.t
+  @spec describe_tags(opts :: describe_tags_opts) :: ExAws.Operation.RestQuery.t
+  def describe_tags(opts \\ []) do
+    describe_tags_params = opts
+    |> Keyword.delete(:filters)
+    |> normalize_opts
+    |> Map.merge(maybe_format(opts, :filters) |> Enum.into(%{}))
+
+    request(:get, :describe_tags, describe_tags_params)
+  end
+
+  @doc """
+  Adds or overwrites one or more tags for the specified Amazon EC2 resource or
+  resources. Each resource can have a maximum of 10 tags. Each tag consists of
+  a key and optional value. Tag keys must be unique per resource.
+
+  Doc: http://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_CreateTags.html
+  Examples: TODO
+  TODO: write parser
+  """
+  @type create_tags_opts :: [
+    dry_run: boolean
+  ]
+  @spec create_tags(resource_ids :: [binary, ...], tags :: [tag, ...]) :: ExAws.Operation.RestQuery.t
+  @spec create_tags(resource_ids :: [binary, ...], tags :: [tag, ...], opts :: create_tags_opts) :: ExAws.Operation.RestQuery.t
+  def create_tags(resource_ids, tags, opts \\ []) do
+    create_tags_params = opts
+    |> normalize_opts
+    |> Map.merge(format_request(:resource_ids, resource_ids) |> Enum.into(%{}))
+    |> Map.merge(format_request(:tags, tags) |> Enum.into(%{}))
+
+    request(:post, :create_tags, create_tags_params)
+  end
+
+  @doc """
+  Deletes the specified set of tags from the specified set of resources.
+
+  Doc: http://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_DeleteTags.html
+  Examples: TODO
+  TODO: write parser
+  ```
+  ```
+  """
+  @type delete_tags_opts :: [
+    dry_run: boolean,
+    tags: [tag, ...]
+  ]
+  @spec delete_tags(resource_ids :: [binary, ...]) :: ExAws.Operation.RestQuery.t
+  @spec delete_tags(resource_ids :: [binary, ...], opts :: delete_tags_opts) :: ExAws.Operation.RestQuery.t
+  def delete_tags(resource_ids, opts \\ []) do
+    delete_tags_params = opts
+    |> Keyword.delete(:tags)
+    |> normalize_opts
+    |> Map.merge(format_request(:resource_ids, resource_ids) |> Enum.into(%{}))
+    |> Map.merge(maybe_format(opts, :tags) |> Enum.into(%{}))
+
+    request(:post, :delete_tags, delete_tags_params)
+  end
+
+
+  #############################################
+  # Regions and Availability Zones Operations #
+  #############################################
+
+  @doc """
+  Describes one or more of the Availability Zones that are available to you.
+  The results include zones only for the region you're currently using.
+
+  Doc: http://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_DescribeAvailabilityZones.html
+
+  TODO: write parser
+  Examples:
+  ```
+  EC2.describe_availability_zones
+  EC2.describe_availability_zones([zone_names: ["us-east-1d"]])
+  ```
+  """
+  @type describe_availability_zones_opts :: [
+    dry_run: boolean,
+    zone_names: [binary, ...],
+    filters: [filter, ...]
+  ]
+  @spec describe_availability_zones() :: ExAws.Operation.RestQuery.t
+  @spec describe_availability_zones(opts :: describe_availability_zones_opts) :: ExAws.Operation.RestQuery.t
+  def describe_availability_zones(opts \\ []) do
+    desc_availability_zones_params =
+      opts
+        |> Keyword.delete(:zone_names)
+        |> Keyword.delete(:filters)
+        |> normalize_opts
+        |> Map.merge(maybe_format(opts, :zone_names) |> Enum.into(%{}))
+        |> Map.merge(maybe_format(opts, :filters) |> Enum.into(%{}))
+
+    request(:get, :describe_availability_zones, desc_availability_zones_params)
+  end
+
+
+  @doc """
+  Describes one or more regions that are currently available to you.
+
+  Doc: http://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_DescribeRegions.html
+
+  TODO: write parser
+  Examples:
+  ```
+  EC2.describe_regions
+  EC2.describe_regions([region_names: ["us-east-1", "eu-west-1"]])
+  """
+  @type describe_regions_opts :: [
+    dry_run: boolean,
+    filters: [filter, ...],
+    region_names: [binary, ...]
+  ]
+  @spec describe_regions() :: ExAws.Operation.RestQuery.t
+  @spec describe_regions(opts :: describe_regions_opts) :: ExAws.Operation.RestQuery.t
+  def describe_regions(opts \\ []) do
+    desc_regions_params =
+      opts
+        |> Keyword.delete(:filters)
+        |> Keyword.delete(:region_names)
+        |> normalize_opts
+        |> Map.merge(maybe_format(opts, :region_names) |> Enum.into(%{}))
+        |> Map.merge(maybe_format(opts, :filters) |> Enum.into(%{}))
+
+    request(:get, :describe_regions, desc_regions_params)
+  end
+
+  ###########################
+  # Resource ID Operatioons #
+  ###########################
+
+  @doc """
+  Describes the ID format settings for your resources on a per-region basis,
+  for example, to view which resource types are enabled for longer IDs.
+
+  Doc: http://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_DescribeIdFormat.html
+  Examples: TODO
+  TODO: write parser
+  ```
+
+  ```
+  """
+  @type resource :: [
+    :instance    |
+    :reservation |
+    :snapshot    |
+    :volume
+  ]
+  @type describe_id_format_opts :: [
+    resource: resource
+  ]
+  @spec describe_id_format() :: ExAws.Operation.RestQuery.t
+  @spec describe_id_format(opts :: describe_id_format_opts) :: ExAws.Operation.RestQuery.t
+  def describe_id_format(opts \\ []) do
+    desc_id_format_params = opts
+    |> Keyword.delete(:resource)
+    |> Enum.into(%{})
+    |> Map.merge(maybe_format(opts, :resource) |> Enum.into(%{}))
+
+    request(:get, :describe_id_format, desc_id_format_params)
+  end
+
+  @doc """
+  Modifies the ID format for the specified resource on a per-region basis.
+
+  Doc: http://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_ModifyIdFormat.html
+  Examples:
+  ```
+  EC2.modify_id_format(:instance, true)
+  ```
+  TODO: write parser
+  """
+  @spec modify_id_format(resource :: resource, use_long_ids :: boolean) :: ExAws.Operation.RestQuery.t
+  def modify_id_format(resource, use_long_ids) do
+    modify_id_format_params = %{
+      "Resource" => resource |> Atom.to_string,
+      "UseLongIds" => use_long_ids
+    }
+
+    request(:post, :modify_id_format, modify_id_format_params)
+  end
+
+  #################################
+  # Account Attributes Operations #
+  #################################
+
+  @doc """
+  Describes attributes of your AWS account.
+
+  Doc: http://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_DescribeAccountAttributes.html
+  Examples: TODO:
+  ```
+  ```
+  TODO: write parser
+  """
+  @type attribute_name :: [
+    :supported_platforms |
+    :default_vpc
+  ]
+  @type describe_account_attributes_opts :: [
+    attribute_names: [attribute_name, ...],
+    dry_run: boolean
+  ]
+  @spec describe_account_attributes() :: ExAws.Operation.RestQuery.t
+  @spec describe_account_attributes(opts :: describe_account_attributes_opts) :: ExAws.Operation.RestQuery.t
+  def describe_account_attributes(opts \\ []) do
+    query_params =
+      opts
+      |> Keyword.delete(:attribute_names)
+      |> normalize_opts
+      |> Map.merge(maybe_format(opts, :attribute_names) |> Enum.into(%{}))
+
+    request(:get, :describe_account_attributes, query_params)
   end
 
 
@@ -274,6 +910,20 @@ defmodule ExAws.EC2 do
   # Format Functions #
   ####################
 
+  defp format_request(:attribute_names, attribute_names) do
+    modified_attribute_names = for attribute_name <- attribute_names do
+      attribute_name
+      |> Atom.to_string
+      |> String.replace("_", "-")
+    end
+
+    build_indexed_params("AttributeName", modified_attribute_names)
+  end
+
+  defp format_request(:executable_by_list, executable_by_list) do
+    build_indexed_params("ExecutableBy", executable_by_list)
+  end
+
   defp format_request(:filters, filters) do
     filters = for{name, values} <- filters,
       do: [name: maybe_stringify(name), value: values]
@@ -281,8 +931,31 @@ defmodule ExAws.EC2 do
     build_indexed_params("Filter", filters)
   end
 
+  defp format_request(:image_ids, image_ids) do
+    build_indexed_params("ImageId", image_ids)
+  end
+
   defp format_request(:instance_ids, instance_ids) do
     build_indexed_params("InstanceId", instance_ids)
+  end
+
+  defp format_request(:owners, owners) do
+    build_indexed_params("Owner", owners)
+  end
+
+  defp format_request(:region_names, region_names) do
+    build_indexed_params("RegionName", region_names)
+  end
+
+  defp format_request(:resource, resource) do
+    [{"Resource",
+      resource
+        |> Atom.to_string
+    }]
+  end
+
+  defp format_request(:resource_ids, resource_ids) do
+    build_indexed_params("ResourceId", resource_ids)
   end
 
   defp format_request(:tags, tags) do
@@ -306,6 +979,11 @@ defmodule ExAws.EC2 do
   defp format_request(:volume_type, volume_type) do
     [{"VolumeType", volume_type |> Atom.to_string}]
   end
+
+  defp format_request(:zone_names, zone_names) do
+    build_indexed_params("ZoneName", zone_names)
+  end
+
 
 
   # @type datetime :: {
@@ -438,56 +1116,9 @@ defmodule ExAws.EC2 do
   #
   # @type create_volume_permission_modifications :: {add :: [create_volume_permission], remove :: [create_volume_permission]}
   #
-  # @type describe_instances_opts :: [
-  #   {:dry_run, boolean}                        |
-  #   {:filters, [filter]}                       |
-  #   {:instance_id, [binary]}                     |
-  #   {:max_results, integer}                    |
-  #   {:next_token, binary}
-  # ]
-  # @doc """
-  # Describes one or more of your instances.
-  # """
-  # @spec describe_instances() :: ExAws.Operation.RestQuery.t
-  # @spec describe_instances(opts :: describe_instances_opts) :: ExAws.Operation.RestQuery.t
-  # def describe_instances(opts \\ []) do
-  #   query_params = opts
-  #   |> normalize_opts
-  #   |> Map.merge(%{
-  #     "Action"  => "DescribeInstances",
-  #     "Version" => @version
-  #     })
-  #
-  #   request(:get, "/", query_params)
-  # end
   #
   # @type event_codes :: :instance_reboot | :system_reboot | :system_maintenance | :instance_retirement | :instance_stop
   # @type instance_state_names :: :pending | :running | :shutting_down | :terminated | :stopping | :stopped
-  # @type describe_instance_status_opts :: [
-  #   {:dry_run, boolean}                                  |
-  #   {:filters, [filter]}                                 |
-  #   {:instance_id, [binary]}                               |
-  #   {:include_all_instances, boolean}                    |
-  #   {:max_results, integer}                              |
-  #   {:next_token, binary}
-  # ]
-  # @doc """
-  # Describes the status of one or more instances. By default, only running
-  # instances are described, unless specified otherwise.
-  # """
-  # @spec describe_instance_status() :: ExAws.Operation.RestQuery.t
-  # @spec describe_instance_status(opts :: describe_instance_status_opts) :: ExAws.Operation.RestQuery.t
-  # def describe_instance_status(opts \\ []) do
-  #   query_params = opts
-  #   |> normalize_opts
-  #   |> Map.merge(%{
-  #     "Action"  => "DescribeInstanceStatus",
-  #     "Version" => @version
-  #     })
-  #
-  #   request(:get, "/", query_params)
-  # end
-  #
   # @type run_instances_opts :: [
   #   {:additional_info, binary}                                                |
   #   {:block_device_mapping, block_device_mapping_list}                        |
@@ -528,89 +1159,7 @@ defmodule ExAws.EC2 do
   #   request(:post, "/", query_params)
   # end
   #
-  # @type start_instances_opts :: [
-  #   {:additional_info, binary} |
-  #   {:dry_run, boolean}
-  # ]
-  # @doc """
-  # Starts an Amazon EBS-backed AMI that was previously stopped.
-  # """
-  # @spec start_instances(instance_ids :: list(binary)) :: ExAws.Operation.RestQuery.t
-  # @spec start_instances(instance_ids :: list(binary), opts :: start_instances_opts) :: ExAws.Operation.RestQuery.t
-  # def start_instances(instance_ids, opts \\ []) do
-  #   query_params = opts
-  #   |> normalize_opts
-  #   |> Map.merge(%{
-  #     "Action"  => "StartInstances",
-  #     "Version" => @version,
-  #     })
-  #   |> Map.merge(list_builder(instance_ids, "InstanceId", 1, %{}))
   #
-  #   request(:post, "/", query_params)
-  # end
-  #
-  # @type stop_instances_opts :: [
-  #   {:dry_run, boolean} |
-  #   {:force, boolean}
-  # ]
-  # @doc """
-  # Stops an Amazon EBS-backed AMI that was previously started.
-  # """
-  # @spec stop_instances(instance_ids :: list(binary)) :: ExAws.Operation.RestQuery.t
-  # @spec stop_instances(instance_ids :: list(binary), opts :: stop_instances_opts) :: ExAws.Operation.RestQuery.t
-  # def stop_instances(instance_ids, opts \\ []) do
-  #   query_params = opts
-  #   |> normalize_opts
-  #   |> Map.merge(%{
-  #     "Action"  => "StopInstances",
-  #     "Version" => @version
-  #     })
-  #   |> Map.merge(list_builder(instance_ids, "InstanceId", 1, %{}))
-  #
-  #   request(:post, "/", query_params)
-  # end
-  #
-  # @type terminate_instances_opts :: [
-  #   {:dry_run, boolean}
-  # ]
-  # @doc """
-  # Shuts down one or more instances. Terminated instances remain visible after
-  # termination (for approximately one hour).
-  # """
-  # @spec terminate_instances(instance_ids :: list(binary)) :: ExAws.Operation.RestQuery.t
-  # @spec terminate_instances(instance_ids :: list(binary), opts :: terminate_instances_opts) :: ExAws.Operation.RestQuery.t
-  # def terminate_instances(instance_ids, opts \\ []) do
-  #   query_params = opts
-  #   |> normalize_opts
-  #   |> Map.merge(%{
-  #     "Action"  => "TerminateInstances",
-  #     "Version" => @version
-  #     })
-  #   |> Map.merge(list_builder(instance_ids, "InstanceId", 1, %{}))
-  #
-  #   request(:post, "/", query_params)
-  # end
-  #
-  # @type reboot_instances_opts :: [
-  #   {:dry_run, boolean}
-  # ]
-  # @doc """
-  # Requests a reboot of one or more instances. This operation is asynchronous; it
-  # only queues a request to reboot the specified instances.
-  # """
-  # @spec reboot_instances(instance_ids :: list(binary)) :: ExAws.Operation.RestQuery.t
-  # @spec reboot_instances(instance_ids :: list(binary), opts :: reboot_instances_opts) :: ExAws.Operation.RestQuery.t
-  # def reboot_instances(instance_ids, opts \\ []) do
-  #   query_params = opts
-  #   |> normalize_opts
-  #   |> Map.merge(%{
-  #     "Action"  => "RebootInstances",
-  #     "Version" => @version
-  #     })
-  #   |> Map.merge(list_builder(instance_ids, "InstanceId", 1, %{}))
-  #
-  #   request(:post, "/", query_params)
-  # end
   #
   # @type reason_code :: :instance_stuck_in_state | :unresponsive | :not_accepting_credentials | :password_not_available | :performance_network | :performance_instance_store | :perforamce_ebs_volume | :performance_other | :other
   #
@@ -802,257 +1351,6 @@ defmodule ExAws.EC2 do
   #   request(:get, "/", query_params)
   # end
   #
-  # ##############################################
-  # ### Regions and Availability Zones Actions ###
-  # ##############################################
-  #
-  # @type availability_zone_states :: :available | :information | :impaired | :unavailable
-  #
-  # @type describe_availability_zones_opts :: [
-  #   {:dry_run, boolean}           |
-  #   {:filters, [filter]}          |
-  #   {:zone_name, [binary]}
-  # ]
-  # @doc """
-  # Describes one or more of the Availability Zones that are available to you.
-  # The results include zones only for the region you're currently using.
-  # """
-  # @spec describe_availability_zones() :: ExAws.Operation.RestQuery.t
-  # @spec describe_availability_zones(opts :: describe_availability_zones_opts) :: ExAws.Operation.RestQuery.t
-  # def describe_availability_zones(opts \\ []) do
-  #   query_params = opts
-  #   |> normalize_opts
-  #   |> Map.merge(%{
-  #     "Action"  => "DescribeAvailabilityZones",
-  #     "Version" => @version
-  #     })
-  #
-  #   request(:get, "/", query_params)
-  # end
-  #
-  # @type describe_regions_opts :: [
-  #   {:dry_run, boolean}           |
-  #   {:filters, [filter]}          |
-  #   {:region_name, [binary]}
-  # ]
-  # @doc """
-  # Describes one or more regions that are currently available to you.
-  # """
-  # @spec describe_regions() :: ExAws.Operation.RestQuery.t
-  # @spec describe_regions(opts :: describe_regions_opts) :: ExAws.Operation.RestQuery.t
-  # def describe_regions(opts \\ []) do
-  #   query_params = opts
-  #   |> normalize_opts
-  #   |> Map.merge(%{
-  #     "Action"  => "DescribeRegions",
-  #     "Version" => @version
-  #     })
-  #
-  #   request(:get, "/", query_params)
-  # end
-  #
-  # ###################
-  # ### AMI Actions ###
-  # ###################
-  #
-  # @type create_image_opts :: [
-  #   {:block_device_mapping, block_device_mapping_list}          |
-  #   {:description, binary}                                      |
-  #   {:dry_run, boolean}                                         |
-  #   {:no_reboot, boolean}
-  # ]
-  # @doc """
-  # Creates an Amazon EBS-backed AMI from an Amazon EBS-backed instance
-  # that is either running or stopped.
-  # """
-  # @spec create_image(instance_id :: binary, name :: binary) :: ExAws.Operation.RestQuery.t
-  # @spec create_image(instance_id :: binary, name :: binary, opts :: create_image_opts) :: ExAws.Operation.RestQuery.t
-  # def create_image(instance_id, name, opts \\ []) do
-  #   query_params = opts
-  #   |> normalize_opts
-  #   |> Map.merge(%{
-  #     "Action"     => "CreateImage",
-  #     "Version"    => @version,
-  #     "InstanceId" => instance_id,
-  #     "Name"       => name
-  #     })
-  #
-  #   request(:post, "/", query_params)
-  # end
-  #
-  # @type copy_image_opts :: [
-  #   {:client_token, binary} |
-  #   {:description, binary}  |
-  #   {:dry_run, boolean}     |
-  #   {:encrypted, boolean}   |
-  #   {:kms_key_id, binary}
-  # ]
-  # @doc """
-  # Initiates the copy of an AMI from the specified source region to the current
-  # region. You specify the destination region by using its endpoint when
-  # making the request.
-  # """
-  # @spec copy_image(name :: binary, source_image_id :: binary, source_region :: binary) :: ExAws.Operation.RestQuery.t
-  # @spec copy_image(name :: binary, source_image_id :: binary, source_region :: binary, opts :: copy_image_opts) :: ExAws.Operation.RestQuery.t
-  # def copy_image(name, source_image_id, source_region, opts \\ []) do
-  #   query_params = opts
-  #   |> normalize_opts
-  #   |> Map.merge(%{
-  #     "Action"        => "CopyImage",
-  #     "Version"       => @version,
-  #     "Name"          => name,
-  #     "SourceImageId" => source_image_id,
-  #     "SourceRegion"  => source_region
-  #     })
-  #
-  #   request(:post, "/", query_params)
-  # end
-  #
-  # @type describe_images_opts :: [
-  #   {:dry_run, boolean}                |
-  #   {:executable_by, [binary]}         |
-  #   {:filters, [filter]}               |
-  #   {:image_id, [binary]}              |
-  #   {:owner, [binary]}
-  # ]
-  # @doc """
-  # Describes one or more of the images (AMIs, AKIs, and ARIs) available to you.
-  # """
-  # @spec describe_images() :: ExAws.Operation.RestQuery.t
-  # @spec describe_images(opts :: describe_images_opts) :: ExAws.Operation.RestQuery.t
-  # def describe_images(opts \\ []) do
-  #   query_params = opts
-  #   |> normalize_opts
-  #   |> Map.merge(%{
-  #     "Action"  => "DescribeImages",
-  #     "Version" => @version
-  #     })
-  #
-  #   request(:get, "/", query_params)
-  # end
-  #
-  # @type describe_image_attribute_opts :: [
-  #   {:dry_run, boolean}
-  # ]
-  # @doc """
-  # Describes the specified attribute of the specified AMI. You can specify
-  # only one attribute at a time.
-  # """
-  # @spec describe_image_attribute(image_id :: binary, attribute :: binary) :: ExAws.Operation.RestQuery.t
-  # @spec describe_image_attribute(image_id :: binary, attribute :: binary, opts :: describe_image_attribute_opts) :: ExAws.Operation.RestQuery.t
-  # def describe_image_attribute(image_id, attribute, opts \\ []) do
-  #   query_params = opts
-  #   |> normalize_opts
-  #   |> Map.merge(%{
-  #     "Action"    => "DescribeImageAttribute",
-  #     "Version"   => @version,
-  #     "ImageId"   => image_id,
-  #     "Attribute" => attribute
-  #     })
-  #
-  #   request(:get, "/", query_params)
-  # end
-  #
-  # @type modify_image_attribute_opts :: [
-  #   {:attribute, binary}                                  |
-  #   {:description, attribute_value}                       |
-  #   {:dry_run, boolean}                                   |
-  #   {:launch_permission, launch_permission_modifications} |
-  #   {:operation_type, :add | :remove}                     |
-  #   {:product_code, :add | :remove}                       |
-  #   {:user_group, [binary]}                               |
-  #   {:value, binary}
-  # ]
-  # @doc """
-  # Modifies the specified attribute of the specified AMI. You can specify only
-  # one attribute at a time.
-  # """
-  # @spec modify_image_attribute(image_id :: binary) :: ExAws.Operation.RestQuery.t
-  # @spec modify_image_attribute(image_id :: binary, opts :: modify_image_attribute_opts) :: ExAws.Operation.RestQuery.t
-  # def modify_image_attribute(image_id, opts \\ []) do
-  #   query_params = opts
-  #   |> normalize_opts
-  #   |> Map.merge(%{
-  #     "Action"  => "ModifyImageAttribute",
-  #     "Version" => @version,
-  #     "ImageId" => image_id
-  #     })
-  #
-  #   request(:post, "/", query_params)
-  # end
-  #
-  # @type reset_image_attribute_opts :: [
-  #   {:dry_run, boolean}
-  # ]
-  # @doc """
-  # Resets an attribute of an AMI to its default value.
-  # """
-  # @spec reset_image_attribute(image_id :: binary, attribute :: binary) :: ExAws.Operation.RestQuery.t
-  # @spec reset_image_attribute(image_id :: binary, attribute :: binary, opts :: reset_image_attribute_opts) :: ExAws.Operation.RestQuery.t
-  # def reset_image_attribute(image_id, attribute, opts \\ []) do
-  #   query_params = opts
-  #   |> normalize_opts
-  #   |> Map.merge(%{
-  #     "Action"    => "ResetImageAttribute",
-  #     "Version"   => @version,
-  #     "ImageId"   => image_id,
-  #     "Attribute" => attribute
-  #     })
-  #
-  #   request(:post, "/", query_params)
-  # end
-  #
-  # @type register_image_opts :: [
-  #   {:architecture, :i386 | :x86_64}                            |
-  #   {:block_device_mapping, block_device_mapping_list}          |
-  #   {:description, binary}                                      |
-  #   {:dry_run, boolean}                                         |
-  #   {:image_location, binary}                                   |
-  #   {:kernel_id, binary}                                        |
-  #   {:ram_disk_id, binary}                                      |
-  #   {:root_device_name, binary}                                 |
-  #   {:sriov_net_support, binary}                                |
-  #   {:virtualization_type, binary}
-  # ]
-  # @doc """
-  # Registers an AMI. When you're creating an AMI, this is the final step you
-  # must complete before you can launch an instance from the AMI.
-  # """
-  # @spec register_image(name :: binary) :: ExAws.Operation.RestQuery.t
-  # @spec register_image(name :: binary, opts :: register_image_opts) :: ExAws.Operation.RestQuery.t
-  # def register_image(name, opts \\ []) do
-  #   query_params = opts
-  #   |> normalize_opts
-  #   |> Map.merge(%{
-  #     "Action"  => "RegisterImage",
-  #     "Version" => @version,
-  #     "Name"    => name
-  #     })
-  #
-  #   request(:post, "/", query_params)
-  # end
-  #
-  # @type deregister_image_opts :: [
-  #   {:dry_run, boolean}
-  # ]
-  # @doc """
-  # Deregisters the specified AMI. After you deregister an AMI, it can't be used
-  # to launch new instances.
-  # """
-  # @spec deregister_image(image_id :: binary) :: ExAws.Operation.RestQuery.t
-  # @spec deregister_image(image_id :: binary, opts :: deregister_image_opts) :: ExAws.Operation.RestQuery.t
-  # def deregister_image(image_id, opts \\ []) do
-  #   query_params = opts
-  #   |> normalize_opts
-  #   |> Map.merge(%{
-  #     "Action"  => "DeregisterImage",
-  #     "Version" => @version,
-  #     "ImageId" => image_id
-  #     })
-  #
-  #   request(:post, "/", query_params)
-  # end
-  #
   # #########################
   # ### Key Pairs Actions ###
   # #########################
@@ -1138,46 +1436,6 @@ defmodule ExAws.EC2 do
   #     "KeyName"           => key_name,
   #     "PublicKeyMaterial" => Base.url_encode64(public_key_material)
   #     })
-  #
-  #   request(:post, "/", query_params)
-  # end
-  #
-  # ###########################
-  # ### Resource ID Actions ###
-  # ###########################
-  #
-  # @type describe_id_format_opts :: [
-  #   {:resource, binary}
-  # ]
-  # @doc """
-  # Describes the ID format settings for your resources on a per-region basis,
-  # for example, to view which resource types are enabled for longer IDs.
-  # """
-  # @spec describe_id_format() :: ExAws.Operation.RestQuery.t
-  # @spec describe_id_format(opts :: describe_id_format_opts) :: ExAws.Operation.RestQuery.t
-  # def describe_id_format(opts \\ []) do
-  #   query_params = opts
-  #   |> normalize_opts
-  #   |> Map.merge(%{
-  #     "Action"  => "DescribeIdFormat",
-  #     "Version" => @version
-  #     })
-  #
-  #   request(:get, "/", query_params)
-  # end
-  #
-  #
-  # @doc """
-  # Modifies the ID format for the specified resource on a per-region basis.
-  # """
-  # @spec modify_id_format(resource :: binary, use_long_ids :: boolean) :: ExAws.Operation.RestQuery.t
-  # def modify_id_format(resource, use_long_ids) do
-  #   query_params = %{
-  #     "Action"     => "ModifyIdFormat",
-  #     "Version"    => @version,
-  #     "Resource"   => resource,
-  #     "UseLongIds" => use_long_ids
-  #   }
   #
   #   request(:post, "/", query_params)
   # end
@@ -1539,101 +1797,6 @@ defmodule ExAws.EC2 do
   #   request(:post, "/", query_params)
   # end
   #
-  # ####################
-  # ### Tags Actions ###
-  # ####################
-  #
-  # @type resource_type ::
-  #   :customer_gateway      |
-  #   :dhcp_options          |
-  #   :image                 |
-  #   :instance              |
-  #   :internet_gateway      |
-  #   :network_acl           |
-  #   :network_interface     |
-  #   :reserved_instance     |
-  #   :route_table           |
-  #   :security_group        |
-  #   :snapshot              |
-  #   :spot_instance_request |
-  #   :subnet                |
-  #   :volume                |
-  #   :vpc                   |
-  #   :vpn_connection        |
-  #   :vpn_gateway
-  #
-  # @type describe_tags_filter ::
-  #   {:key, (binary | [binary])}                            |
-  #   {:resource_type, (resource_type | [resource_type])}    |
-  #   {:resource_id, (binary | [binary])}                    |
-  #   {:value, (binary | [binary])}
-  #
-  # @type describe_tags_opts :: [
-  #   {:dry_run, boolean}                       |
-  #   {:filters, [describe_tags_filter]}        |
-  #   {:max_results, integer}                   |
-  #   {:next_token, binary}
-  # ]
-  # @doc """
-  # Describes one or more of the tags for your EC2 resources.
-  # """
-  # @spec describe_tags() :: ExAws.Operation.RestQuery.t
-  # @spec describe_tags(opts :: describe_tags_opts) :: ExAws.Operation.RestQuery.t
-  # def describe_tags(opts \\ []) do
-  #   query_params = opts
-  #   |> normalize_opts
-  #   |> Map.merge(%{
-  #     "Action"  => "DescribeTags",
-  #     "Version" => @version
-  #     })
-  #
-  #   request(:get, "/", query_params)
-  # end
-  #
-  # @type create_tags_opts :: [
-  #   {:dry_run, boolean}
-  # ]
-  # @doc """
-  # Adds or overwrites one or more tags for the specified Amazon EC2 resource or
-  # resources. Each resource can have a maximum of 10 tags. Each tag consists of
-  # a key and optional value. Tag keys must be unique per resource.
-  # """
-  # @spec create_tags(resource_ids :: list(binary), tags :: [tag]) :: ExAws.Operation.RestQuery.t
-  # @spec create_tags(resource_ids :: list(binary), tags :: [tag], opts :: create_tags_opts) :: ExAws.Operation.RestQuery.t
-  # def create_tags(resource_ids, tags, opts \\ []) do
-  #   query_params = opts
-  #   |> normalize_opts
-  #   |> Map.merge(%{
-  #     "Action"  => "CreateTags",
-  #     "Version" => @version
-  #     })
-  #   |> Map.merge(list_builder(resource_ids, "ResourceId", 1, %{}))
-  #   |> Map.merge(list_builder_key_val(tags, "Tag", 1, %{}))
-  #
-  #   request(:post, "/", query_params)
-  # end
-  #
-  # @type delete_tags_opts :: [
-  #   {:dry_run, boolean} |
-  #   {:tag, [{:tag, tag}, ...]}
-  # ]
-  # @doc """
-  # Deletes the specified set of tags from the specified set of resources.
-  # """
-  # @spec delete_tags(resource_ids :: list(binary)) :: ExAws.Operation.RestQuery.t
-  # @spec delete_tags(resource_ids :: list(binary), opts :: delete_tags_opts) :: ExAws.Operation.RestQuery.t
-  # def delete_tags(resource_ids, opts \\ []) do
-  #   query_params = opts
-  #   |> normalize_opts
-  #   |> Map.merge(%{
-  #     "Action"  => "DeleteTags",
-  #     "Version" => @version
-  #     })
-  #   |> Map.merge(list_builder(resource_ids, "ResourceId", 1, %{}))
-  #
-  #   request(:post, "/", query_params)
-  # end
-  #
   # ####################################
   # ### Elastic Block Stores Actions ###
   # ####################################
@@ -1659,101 +1822,6 @@ defmodule ExAws.EC2 do
   #     })
   #
   #   request(:get, "/", query_params)
-  # end
-  #
-  # @type create_volume_opts :: [
-  #   {:dry_run, boolean}    |
-  #   {:encrypted, boolean}  |
-  #   {:iops, 100..20000}    |
-  #   {:kms_key_id, binary}  |
-  #   {:snapshot_id, binary} |
-  #   {:volume_type, :standard | :op1 | :gp2 | :sc1 | :st1}
-  # ]
-  # @doc """
-  # Creates an EBS volume that can be attached to an instance in the same
-  # Availability Zone. The volume is created in the regional endpoint that you
-  # send the HTTP request to.
-  # """
-  # @spec create_volume(availability_zone :: binary, size :: available_size_ranges) :: ExAws.Operation.RestQuery.t
-  # @spec create_volume(availability_zone :: binary, size :: available_size_ranges, opts :: create_volume_opts) :: ExAws.Operation.RestQuery.t
-  # def create_volume(availability_zone, size, opts \\ []) do
-  #   query_params = opts
-  #   |> normalize_opts
-  #   |> Map.merge(%{
-  #     "Action"           => "CreateVolume",
-  #     "Version"          => @version,
-  #     "AvailabilityZone" => availability_zone,
-  #     "Size"             => size
-  #     })
-  #
-  #   request(:post, "/", query_params)
-  # end
-  #
-  # @type delete_volume_opts :: [
-  #   {:dry_run, boolean}
-  # ]
-  # @doc """
-  # Deletes the specified EBS volume. The volume must be in the available state
-  # (not attached to an instance).
-  # """
-  # @spec delete_volume(volume_id :: binary) :: ExAws.Operation.RestQuery.t
-  # @spec delete_volume(volume_id :: binary, opts :: delete_volume_opts) :: ExAws.Operation.RestQuery.t
-  # def delete_volume(volume_id, opts \\ []) do
-  #   query_params = opts
-  #   |> normalize_opts
-  #   |> Map.merge(%{
-  #     "Action"   => "DeleteVolume",
-  #     "Version"  => @version,
-  #     "VolumeId" => volume_id
-  #     })
-  #
-  #   request(:post, "/", query_params)
-  # end
-  #
-  # @type attach_volume_opts :: [
-  #   {:dry_run, boolean}
-  # ]
-  # @doc """
-  # Attaches an EBS volume to a running or stopped instance and exposes it to
-  # the instance with the specified device name.
-  # """
-  # @spec attach_volume(instance_id :: binary, volume_id :: binary, device :: binary) :: ExAws.Operation.RestQuery.t
-  # @spec attach_volume(instance_id :: binary, volume_id :: binary, device :: binary, opts :: attach_volume_opts) :: ExAws.Operation.RestQuery.t
-  # def attach_volume(instance_id, volume_id, device, opts \\ []) do
-  #   query_params = opts
-  #   |> normalize_opts
-  #   |> Map.merge(%{
-  #     "Action"     => "AttachVolume",
-  #     "Version"    => @version,
-  #     "InstanceId" => instance_id,
-  #     "VolumeId"   => volume_id,
-  #     "Device"     => device
-  #     })
-  #
-  #   request(:post, "/", query_params)
-  # end
-  #
-  # @type detach_volume_opts :: [
-  #   {:dry_run, boolean} |
-  #   {:device, binary}   |
-  #   {:force, boolean}   |
-  #   {:instance_id, binary}
-  # ]
-  # @doc """
-  # Detaches an EBS volume from an instance.
-  # """
-  # @spec detach_volume(volume_id :: binary) :: ExAws.Operation.RestQuery.t
-  # @spec detach_volume(volume_id :: binary, opts :: detach_volume_opts) :: ExAws.Operation.RestQuery.t
-  # def detach_volume(volume_id, opts \\ []) do
-  #   query_params = opts
-  #   |> normalize_opts
-  #   |> Map.merge(%{
-  #     "Action"   => "DetachVolume",
-  #     "Version"  => @version,
-  #     "VolumeId" => volume_id,
-  #     })
-  #
-  #   request(:post, "/", query_params)
   # end
   #
   # @type describe_volume_attribute_opts :: [
@@ -2008,29 +2076,6 @@ defmodule ExAws.EC2 do
   #   request(:post, "/", query_params)
   # end
   #
-  # ##################################
-  # ### Account Attributes Actions ###
-  # ##################################
-  #
-  # @type describe_account_attributes_opts :: [
-  #   {:attribute_name, [(:supported_platforms | :default_vpc)]}   |
-  #   {:dry_run, boolean}
-  # ]
-  # @doc """
-  # Describes attributes of your AWS account.
-  # """
-  # @spec describe_account_attributes() :: ExAws.Operation.RestQuery.t
-  # @spec describe_account_attributes(opts :: describe_account_attributes_opts) :: ExAws.Operation.RestQuery.t
-  # def describe_account_attributes(opts \\ []) do
-  #   query_params = opts
-  #   |> normalize_opts
-  #   |> Map.merge(%{
-  #     "Action"  => "DescribeAccountAttributes",
-  #     "Version" => @version
-  #     })
-  #
-  #   request(:get, "/", query_params)
-  # end
   #
   # ############################
   # ### Bundle Tasks Actions ###
@@ -2105,81 +2150,4 @@ defmodule ExAws.EC2 do
   #
   #   request(:get, "/", query_params)
   # end
-  #
-  # ########################
-  # ### Helper Functions ###
-  # ########################
-  #
-  # defp request(http_method, path, data) do
-  #   %ExAws.Operation.RestQuery{
-  #     http_method: http_method,
-  #     path: path,
-  #     params: data,
-  #     service: :ec2
-  #   }
-  # end
-  #
-  # defp normalize_opts(opts) do
-  #   opts
-  #   |> Enum.reduce(%{}, &reduce_list_params/2)
-  #   |> camelize_keys
-  # end
-  #
-  # defp reduce_list_params({:filters, filters}, acc), do: Map.merge(acc, filter_list_builder(filters, "Filter", 1, %{}))
-  # defp reduce_list_params({key, val}, acc) when is_list(val), do: Map.merge(acc, list_builder(val, key, 1, %{}))
-  # defp reduce_list_params({key, val}, acc), do: Map.put(acc, key, val)
-  #
-  # defp list_builder([], _key, _count, _state), do: %{}
-  # defp list_builder([h | []], key, count, state) do
-  #   Map.put(state, "#{key}.#{count}", h)
-  # end
-  #
-  # defp list_builder([h | t], key, count, state) do
-  #   list_builder t, key, count + 1, Map.put(state, "#{key}.#{count}", h)
-  # end
-  #
-  # defp list_builder_key_val([{f, s} | []], key, count, state) do
-  #   new_map = Map.new
-  #   |> Map.put("#{key}.#{count}.Key", f)
-  #   |> Map.put("#{key}.#{count}.Value", s)
-  #
-  #   Map.merge(state, new_map)
-  # end
-  #
-  # defp list_builder_key_val([_h = {f, s} | t], key, count, state) do
-  #   new_map = Map.new
-  #   |> Map.put("#{key}.#{count}.Key", f)
-  #   |> Map.put("#{key}.#{count}.Value", s)
-  #
-  #   list_builder_key_val t, key, count + 1, Map.merge(state, new_map)
-  # end
-  #
-  #
-  # defp filter_list_builder([], _param, _count, _state), do: %{}
-  # defp filter_list_builder([{f, s} | []], param, count, state) do
-  #   new_map = Map.new
-  #   |> Map.put("#{param}.#{count}.Name", filter_atom_to_string(f))
-  #   |> put_values("#{param}.#{count}.Value", s)
-  #
-  #   Map.merge(state, new_map)
-  # end
-  #
-  # defp filter_list_builder([{f, s} | t], param, count, state) do
-  #   new_map = Map.new
-  #   |> Map.put("#{param}.#{count}.Name", filter_atom_to_string(f))
-  #   |> put_values("#{param}.#{count}.Value", s)
-  #
-  #   filter_list_builder t, param, count + 1, Map.merge(state, new_map)
-  # end
-  #
-  # defp filter_atom_to_string(v) when is_binary(v), do: v
-  # defp filter_atom_to_string(v) when is_atom(v), do: Atom.to_string(v) |> String.replace("_","-")
-  #
-  # defp put_values(map = %{}, prefix, v) when is_list(v) do
-  #   v
-  #   |> Enum.map(&filter_atom_to_string/1)
-  #   |> list_builder(prefix, 1, map)
-  # end
-  # defp put_values(map = %{}, prefix, v) when is_atom(v), do: Map.put(map, prefix, filter_atom_to_string(v))
-  # defp put_values(map = %{}, prefix, v), do: Map.put(map, prefix, v)
 end

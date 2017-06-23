@@ -2,21 +2,119 @@ if Code.ensure_loaded(SweetXml) do
   defmodule ExAws.EC2.Parsers do
     import SweetXml
 
+    defp code_xpath do
+      ~x"./code/text()"s
+    end
+
+    defp code_name_fields() do
+      [
+        code: code_xpath(),
+        name: ~x"./name/text()"s
+      ]
+    end
+
+    defp current_previous_state_fields() do
+      [
+        current_state: [
+          ~x"./currentState",
+        ] ++ code_name_fields(),
+        previous_state: [
+          ~x"./previousState",
+        ] ++ code_name_fields()
+      ]
+    end
+
+    defp instance_id_xpath do
+      ~x"./instanceId/text()"s
+    end
+
+    defp details_fields do
+      [
+        details: [
+          ~x"./details/item"l,
+          name: ~x"./name/text()"s,
+          status: ~x"./status/text()"s,
+          impaired_since: ~x"./impairedSince/text()"s
+        ]
+      ]
+    end
+
+    defp status_xpath do
+      ~x"./status/text()"s
+    end
+
+    defp attach_detach_volume_fields do
+      [
+        request_id: request_id_xpath(),
+        volume_id: ~x"./volumeId/text()"s,
+        instance_id: ~x"./instanceId/text()"s,
+        device: ~x"./device/text()"s,
+        status: status_xpath(),
+        attach_time: ~x"./attachTime/text()"s
+      ]
+    end
+
+    def parse({:ok, %{body: xml}=resp}, :terminate_instances, _) do
+      parsed_body = xml
+      |> SweetXml.xpath(~x"//TerminateInstancesResponse",
+        request_id: request_id_xpath(),
+        instances: [
+          ~x"./instancesSet/item"l,
+          instance_id: instance_id_xpath(),
+        ] ++ current_previous_state_fields())
+
+      {:ok, Map.put(resp, :body, parsed_body)}
+    end
+
+    def parse({:ok, %{body: xml}=resp}, :reboot_instances, _) do
+      parsed_body = xml
+        |> SweetXml.xpath(~x"//RebootInstancesResponse",
+        request_id: request_id_xpath(),
+        return: ~x"./return/text()"s
+      )
+
+      {:ok, Map.put(resp, :body, parsed_body)}
+    end
+
+    def parse({:ok, %{body: xml}=resp}, :start_instances, _) do
+      parsed_body = xml
+        |> SweetXml.xpath(~x"//StartInstancesResponse",
+        request_id: request_id_xpath(),
+        instances: [
+          ~x"./instancesSet/item"l,
+          instance_id: instance_id_xpath(),
+        ] ++ current_previous_state_fields())
+
+      {:ok, Map.put(resp, :body, parsed_body)}
+    end
+
+    def parse({:ok, %{body: xml}=resp}, :stop_instances, _) do
+      parsed_body = xml
+        |> SweetXml.xpath(~x"//StopInstancesResponse",
+        request_id: request_id_xpath(),
+        instances: [
+          ~x"./instancesSet/item"l,
+          instance_id: instance_id_xpath(),
+        ] ++ current_previous_state_fields())
+
+      {:ok, Map.put(resp, :body, parsed_body)}
+    end
+
     def parse({:ok, %{body: xml}=resp}, :describe_instances, _) do
       parsed_body = xml
       |> SweetXml.xpath(~x"//DescribeInstancesResponse",
         request_id: request_id_xpath(),
         reservations: [
           ~x"./reservationSet/item"l,
+          reservation_id: ~x"./reservationId/text()"s,
+          owner_id: ~x"./ownerId/text()"s,
           instances: [
             ~x"./instancesSet/item"l,
-            instance_id: ~x"./instanceId/text()"s,
+            instance_id: instance_id_xpath(),
             image_id: ~x"./imageId/text()"s,
             state: [
               ~x"./instanceState",
-              code: ~x"./code/text()"s,
-              name: ~x"./name/text()"s
-            ],
+            ] ++ code_name_fields(),
             private_dns_name: ~x"./privateDnsName/text()"s,
             public_dns_name: ~x"./dnsName/text()"s,
             key_name: ~x"./keyName/text()"s,
@@ -126,15 +224,41 @@ if Code.ensure_loaded(SweetXml) do
         {:ok, Map.put(resp, :body, parsed_body)}
     end
 
+    def parse({:ok, %{body: xml}=resp}, :describe_instance_status, _) do
+      parsed_body = xml
+      |> SweetXml.xpath(~x"//DescribeInstanceStatusResponse",
+        request_id: request_id_xpath(),
+        instances_statuses: [
+          ~x"./instanceStatusSet/item"l,
+          instance_id: ~x"./instanceId/text()"s,
+          availability_zone: ~x"./availabilityZone/text()"s,
+          state: [
+            ~x"./instanceState",
+          ] ++ code_name_fields(),
+          system_status: [
+            ~x"./systemStatus",
+            status: status_xpath(),
+          ] ++ details_fields(),
+          instance_status: [
+            ~x"./instanceStatus",
+            status: status_xpath(),
+          ] ++ details_fields(),
+          events: [
+            ~x"./eventsSet/item"l,
+            code: code_xpath(),
+            description: ~x"./description/text()"s,
+            not_before_date: ~x"./notBefore/text()"s,
+            not_after_date: ~x"./notAfter/text()"s
+          ]
+        ])
+
+      {:ok, Map.put(resp, :body, parsed_body)}
+    end
+
     def parse({:ok, %{body: xml}=resp}, :attach_volume, _) do
       parsed_body = xml
       |> SweetXml.xpath(~x"//AttachVolumeResponse",
-        request_id: request_id_xpath(),
-        volume_id: ~x"./volumeId/text()"s,
-        instance_id: ~x"./instanceId/text()"s,
-        device: ~x"./device/text()"s,
-        status: ~x"./status/text()"s,
-        attach_time: ~x"./attachTime/text()"s
+        [] ++ attach_detach_volume_fields()
       )
 
       {:ok, Map.put(resp, :body, parsed_body)}
@@ -143,12 +267,7 @@ if Code.ensure_loaded(SweetXml) do
     def parse({:ok, %{body: xml}=resp}, :detach_volume, _) do
       parsed_body = xml
       |> SweetXml.xpath(~x"//DetachVolumeResponse",
-        request_id: request_id_xpath(),
-        volume_id: ~x"./volumeId/text()"s,
-        instance_id: ~x"./instanceId/text()"s,
-        device: ~x"./device/text()"s,
-        status: ~x"./status/text()"s,
-        attach_time: ~x"./attachTime/text()"s
+        [] ++ attach_detach_volume_fields()
       )
 
       {:ok, Map.put(resp, :body, parsed_body)}
@@ -199,7 +318,7 @@ if Code.ensure_loaded(SweetXml) do
       )
 
       {:ok, Map.put(resp, :body, parsed_body)}
-     end
+    end
 
     def parse({:error, {type, http_status_code, %{body: xml}}}, _, _) do
       parsed_body = xml

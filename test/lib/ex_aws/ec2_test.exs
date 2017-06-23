@@ -18,12 +18,12 @@ defmodule ExAws.EC2Test do
     }
   end
 
-  test "describe_instance no additional params" do
+  test "describe_instances no additional params" do
     expected = build_query(:get, :describe_instances, %{})
     assert expected == EC2.describe_instances
   end
 
-  test "describe instances with filters and instance Ids" do
+  test "describe_instances with filters and instance Ids" do
     expected = build_query(:get, :describe_instances, %{
       "Filter.1.Name" => "tag",
       "Filter.1.Value.1" => "Owner",
@@ -35,9 +35,108 @@ defmodule ExAws.EC2Test do
       })
 
     assert expected == EC2.describe_instances(
-    [filters: [tag: ["Owner"], "instance-type": ["m1.small", "m1.large"]],
-     instance_ids: ["i-12345", "i-56789"]
-    ])
+      [filters: [tag: ["Owner"], "instance-type": ["m1.small", "m1.large"]],
+       instance_ids: ["i-12345", "i-56789"]
+      ])
+  end
+
+  test "describe_instance_status" do
+    expected = build_query(:get, :describe_instance_status, %{})
+    assert expected == EC2.describe_instance_status
+  end
+
+  test "describe_instance_status with filters and max_results set" do
+    expected = build_query(:get, :describe_instance_status, %{
+      "Filter.1.Name" => "system-status.reachability",
+      "Filter.1.Value.1" => "failed",
+      "MaxResults" => 5
+      })
+
+    assert expected == EC2.describe_instance_status(
+      [filters: ["system-status.reachability": ["failed"]], max_results: 5]
+    )
+  end
+
+  test "describe_instance_status with instance ids" do
+    expected = build_query(:get, :describe_instance_status, %{
+      "InstanceId.1" => "i-123456",
+      "InstanceId.2" => "i-1a2b3c"
+      })
+
+    assert expected == EC2.describe_instance_status(
+      [instance_ids: ["i-123456", "i-1a2b3c"]]
+    )
+  end
+
+  test "terminate_instances" do
+    expected = build_query(:post, :terminate_instances, %{
+      "InstanceId.1" => "i-123456",
+      })
+
+    assert expected == EC2.terminate_instances(["i-123456"])
+  end
+
+  test "terminate_instances with dry_run set" do
+    expected = build_query(:post, :terminate_instances, %{
+      "InstanceId.1" => "i-123456",
+      "InstanceId.2" => "i-987654",
+      "DryRun" => true
+      })
+
+    assert expected == EC2.terminate_instances(["i-123456", "i-987654"], [dry_run: true])
+  end
+
+  test "reboot_instances" do
+    expected = build_query(:post, :reboot_instances, %{
+      "InstanceId.1" => "i-123456"
+      })
+
+    assert expected == EC2.reboot_instances(["i-123456"])
+  end
+
+  test "reboot_instances with dry_run set" do
+    expected = build_query(:post, :reboot_instances, %{
+      "InstanceId.1" => "i-123456",
+      "DryRun" => true
+      })
+
+    assert expected == EC2.reboot_instances(["i-123456"], [dry_run: true])
+  end
+
+  test "start_instances" do
+    expected = build_query(:post, :start_instances, %{
+      "InstanceId.1" => "i-123456",
+      "InstanceId.2" => "i-987654"
+      })
+
+    assert expected == EC2.start_instances(["i-123456", "i-987654"])
+  end
+
+  test "start_instances with dry_run" do
+    expected = build_query(:post, :start_instances, %{
+      "InstanceId.1" => "i-123456",
+      "DryRun" => false
+      })
+
+    assert expected == EC2.start_instances(["i-123456"], [dry_run: false])
+  end
+
+  test "stop_instances" do
+    expected = build_query(:post, :stop_instances, %{
+      "InstanceId.1" => "i-123456"
+      })
+
+    assert expected == EC2.stop_instances(["i-123456"])
+  end
+
+  test "stop_instances by force" do
+    expected = build_query(:post, :stop_instances, %{
+      "InstanceId.1" => "i-123456",
+      "InstanceId.2" => "i-1234abc",
+      "Force" => true
+      })
+
+    assert expected == EC2.stop_instances(["i-123456", "i-1234abc"], [force: true])
   end
 
   test "attach_volume no additional params" do
@@ -145,6 +244,188 @@ defmodule ExAws.EC2Test do
       [iops: 3000, size: 1024, volume_type: :io1])
   end
 
+
+  test "describe_tags" do
+    expected = build_query(:get, :describe_tags, %{})
+
+    assert expected == EC2.describe_tags
+  end
+
+  test "describe_tags with filters" do
+    expected = build_query(:get, :describe_tags, %{
+      "Filter.1.Name" => "resource-type",
+      "Filter.1.Value.1" => "instance"
+      })
+
+    assert expected == EC2.describe_tags(
+    [filters: [
+      "resource-type": ["instance"]
+      ]])
+  end
+
+  test "create_tags" do
+    expected = build_query(:post, :create_tags, %{
+      "ResourceId.1" => "ami-1a2b3c4d",
+      "ResourceId.2" => "i-1234567890abcdefg",
+      "Tag.1.Key" => "webserver",
+      "Tag.1.Value" => "",
+      "Tag.2.Key" => "stack",
+      "Tag.2.Value" => "Production"
+      })
+
+    assert expected == EC2.create_tags(
+      ["ami-1a2b3c4d", "i-1234567890abcdefg"],
+      ["webserver": "", "stack": "Production"])
+  end
+
+
+  test "delete_tags" do
+    expected = build_query(:post, :delete_tags, %{
+      "ResourceId.1" => "ami-1a2b3c4ed",
+      "Tag.1.Key" => "webserver",
+      "Tag.1.Value" => "",
+      "Tag.2.Key" => "stack",
+      "Tag.2.Value" => ""
+      })
+
+    assert expected == EC2.delete_tags(
+      ["ami-1a2b3c4ed"],
+      [tags: ["webserver": "", "stack": ""]])
+  end
+
+  test "delete_tags with dry_run" do
+    expected = build_query(:post, :delete_tags, %{
+      "ResourceId.1" => "ami-1234567",
+      "ResourceId.2" => "i-abc123def456",
+      "DryRun" => true
+      })
+
+    assert expected == EC2.delete_tags(
+    ["ami-1234567", "i-abc123def456"], [dry_run: true])
+  end
+
+  test "describe_availability_zones with zone names" do
+    expected = build_query(:get, :describe_availability_zones, %{
+      "ZoneName.1" => "us-east-1d",
+      "ZoneName.2" => "us-east-1a"
+      })
+
+    assert expected == EC2.describe_availability_zones(
+      [zone_names: ["us-east-1d", "us-east-1a"]])
+  end
+
+  test "describe_regions" do
+    expected = build_query(:get, :describe_regions, %{})
+
+    assert expected == EC2.describe_regions
+  end
+
+  test "describe_regions with region names" do
+    expected = build_query(:get, :describe_regions, %{
+      "RegionName.1" => "us-east-1",
+      "RegionName.2" => "eu-west-1"
+      })
+
+    assert expected == EC2.describe_regions(
+      [region_names: ["us-east-1", "eu-west-1"]])
+  end
+
+  test "describe_id_format" do
+    expected = build_query(:get, :describe_id_format, %{})
+
+    assert expected == EC2.describe_id_format
+  end
+
+  test "describe_id_format with instance resource" do
+    expected = build_query(:get, :describe_id_format, %{
+      "Resource" => "instance"
+      })
+
+    assert expected == EC2.describe_id_format([resource: :instance])
+  end
+
+  test "modify_id_format" do
+    expected = build_query(:post, :modify_id_format, %{
+      "Resource" => "instance",
+      "UseLongIds" => true
+      })
+
+    assert expected == EC2.modify_id_format(:instance, true)
+  end
+
+  test "describe_account_attributes" do
+    expected = build_query(:get, :describe_account_attributes, %{})
+
+    assert expected == EC2.describe_account_attributes
+  end
+
+  test "describe_account_attributes with attribute name" do
+    expected = build_query(:get, :describe_account_attributes, %{
+      "AttributeName.1" => "supported-platforms"
+      })
+
+    assert expected ==
+      EC2.describe_account_attributes([attribute_names: [:supported_platforms]])
+  end
+
+  test "copy_image" do
+    expected = build_query(:post, :copy_image, %{
+      "SourceRegion" => "us-west-2",
+      "SourceImageId" => "ami-1a2b3c4d",
+      "Name" => "Test AMI"
+      })
+
+    assert expected == EC2.copy_image("Test AMI", "ami-1a2b3c4d", "us-west-2")
+  end
+
+  test "describe_images" do
+    expected = build_query(:get, :describe_images, %{})
+
+    assert expected == EC2.describe_images
+  end
+
+  test "describe_images with image ids and owners" do
+    expected = build_query(:get, :describe_images, %{
+      "ImageId.1" => "ami-1234567",
+      "ImageId.2" => "ami-test123",
+      "Owner.1" => "test_owner",
+      "Owner.2" => "aws"
+      })
+
+    assert expected == EC2.describe_images(
+      [image_ids: ["ami-1234567", "ami-test123"], owners: ["test_owner", "aws"]])
+  end
+
+  test "describe_images with filters" do
+    expected = build_query(:get, :describe_images, %{
+      "Filter.1.Name" => "is-public",
+      "Filter.1.Value.1" => true,
+      "Filter.2.Name" => "architecture",
+      "Filter.2.Value.1" => "x86_64",
+      "Filter.3.Name" => "platform",
+      "Filter.3.Value.1" => "windows",
+      "Filter.3.Value.2" => "linux"
+      })
+
+    assert expected == EC2.describe_images(
+      [
+        filters: [
+          "is-public": [true],
+          "architecture": ["x86_64"],
+          "platform": ["windows", "linux"]
+        ]
+      ]
+    )
+  end
+
+  test "describe_image_attributes" do
+    expected = build_query(:get, :describe_image_attribute, %{
+      "Attribute" => "description",
+      "ImageId" => "ami-1234567"
+    })
+
+    assert expected == EC2.describe_image_attribute("ami-1234567", "description")
+  end
 end
 
 # # defmodule Test.Dummy.EC2 do
