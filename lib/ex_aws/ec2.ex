@@ -221,59 +221,263 @@ defmodule ExAws.EC2 do
   end
 
 
-  # @doc """
-  # Submits feedback about the status of an instance. The instance must be in the
-  # running state.
-  # """
-  # @type report_instance_status_opts :: [
-  #   description: binary,
-  #   dry_run: boolean,
-  #   end_time: binary,
+  @doc """
+  Submits feedback about the status of an instance. The instance must be in the
+  running state.
+
+  Doc: http://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_ReportInstanceStatus.html
+
+  Example:
+  ```
+  EC2.report_instance_status(["i-a1b2c3", "i-d4e5f6"], "ok")
+  EC2.report_instance_status(["i-123456"], "ok", [start_time: DateTime.utc_now])
+  ```
+  """
+  @type report_instance_status_opts :: [
+    description: binary,
+    dry_run: boolean,
+    end_time: %DateTime{},
+    reason_codes: [binary, ...],
+    start_time: %DateTime{}
+  ]
+  @spec report_instance_status(instance_ids :: [binary, ...], status :: binary) :: ExAws.Operation.RestQuery.t
+  @spec report_instance_status(instance_ids :: [binary, ...], status :: binary, opts :: report_instance_status_opts) :: ExAws.Operation.RestQuery.t
+  def report_instance_status(instance_ids, status, opts \\ []) do
+    reason_codes = maybe_format(opts, :reason_codes)
+    start_time = maybe_format(opts, :start_time)
+    end_time = maybe_format(opts, :end_time)
+
+    query_params = Enum.concat([reason_codes, start_time, end_time,
+      opts
+      |> Keyword.delete(:reason_codes)
+      |> Keyword.delete(:end_time)
+      |> Keyword.delete(:start_time)
+      |> normalize_opts
+      |> Map.merge(%{"Status"  => status})
+      |> Map.merge(format_request(:instance_ids, instance_ids) |> Enum.into(%{}))
+    ])
+    |> Enum.into(%{})
+
+    request(:get, :report_instance_status, query_params)
+  end
+
+  @doc """
+  Enables monitoring for a running instance.
+
+  Doc: http://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_MonitorInstances.html
+
+  Examples:
+  ```
+  EC2.monitor_instances(["i-123456", "i-a1b2c3"])
+  """
+  @type monitor_instances_opts :: [
+    dry_run: boolean
+  ]
+  @spec monitor_instances(instance_ids :: [binary, ...]) :: ExAws.Operation.RestQuery.t
+  @spec monitor_instances(instance_ids :: [binary, ...], opts :: monitor_instances_opts) :: ExAws.Operation.RestQuery.t
+  def monitor_instances(instance_ids, opts \\ []) do
+    query_params = opts
+    |> normalize_opts
+    |> Map.merge(format_request(:instance_ids, instance_ids) |> Enum.into(%{}))
+
+    request(:post, :monitor_instances, query_params)
+  end
+
+
+  @doc """
+  Disables monitoring for a running instance.
+
+  Doc: http://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_UnmonitorInstances.html
+
+  Examples:
+  ```
+  EC2.unmonitor_instances(["i-123456", "i-a1b2c3"])
+  EC2.unmonitor_instances(["i-123456"], [dry_run: true])
+  ```
+  """
+  @type unmonitor_instances_opts :: [
+    dry_run: boolean
+  ]
+  @spec unmonitor_instances(instance_ids :: [binary, ...]) :: ExAws.Operation.RestQuery.t
+  @spec unmonitor_instances(instance_ids :: [binary, ...], opts :: unmonitor_instances_opts) :: ExAws.Operation.RestQuery.t
+  def unmonitor_instances(instance_ids, opts \\ []) do
+    query_params = opts
+    |> normalize_opts
+    |> Map.merge(format_request(:instance_ids, instance_ids) |> Enum.into(%{}))
+
+    request(:post, :unmonitor_instances, query_params)
+  end
+
+  @doc """
+  Describes the specified attribute of the specified instance. You can specify
+  only one attribute at a time.
+  """
+  @type describe_instance_attribute_opts :: [
+    dry_run: boolean
+  ]
+  @spec describe_instance_attribute(instance_id :: binary, attribute :: binary) :: ExAws.Operation.RestQuery.t
+  @spec describe_instance_attribute(instance_id :: binary, attribute :: binary, opts :: describe_instance_attribute_opts) :: ExAws.Operation.RestQuery.t
+  def describe_instance_attribute(instance_id, attribute, opts \\ []) do
+    query_params = opts
+    |> normalize_opts
+    |> Map.merge(%{
+      "InstanceId" => instance_id,
+      "Attribute"  => attribute
+      })
+
+    request(:get, :describe_instance_attribute, query_params)
+  end
+
+  # @type modify_instance_attribute_opts :: [
+  #   {:attribute, attributes}                                                        |
+  #   {:block_device_mapping, [instance_block_device_mapping_specification]}          |
+  #   {:disable_api_termination, attribute_boolean_value}                             |
+  #   {:dry_run, boolean}                                                             |
+  #   {:ebs_optimized, attribute_boolean_value}                                       |
+  #   {:group_id, [binary]}                                                           |
+  #   {:instance_initiated_shutdown_behavior, attribute_value}                        |
+  #   {:kernel, attribute_value}                                                      |
+  #   {:ramdisk, attribute_value}                                                     |
+  #   {:source_dest_check, attribute_boolean_value}                                   |
+  #   {:sriov_net_support, attribute_value}                                           |
+  #   {:user_data, attribute_value}                                                   |
+  #   {:value, binary}
   # ]
-  # @spec report_instance_status(instance_ids :: [binary, ...], status :: binary) :: ExAws.Operation.RestQuery.t
-  # @spec report_instance_status(instance_ids :: [binary, ...], status :: binary, opts :: report_instance_status_opts) :: ExAws.Operation.RestQuery.t
-  # def report_instance_status(instance_ids, status, opts \\ []) do
+  # @doc """
+  # Modifies the specified attribute of the specified instance. You can
+  # specify only one attribute at a time.
+  # """
+  # @spec modify_instance_attribute(instance_id :: binary) :: ExAws.Operation.RestQuery.t
+  # @spec modify_instance_attribute(instance_id :: binary, opts :: modify_instance_attribute_opts) :: ExAws.Operation.RestQuery.t
+  # def modify_instance_attribute(instance_id, opts \\ []) do
   #   query_params = opts
   #   |> normalize_opts
   #   |> Map.merge(%{
-  #     "Action"  => "ReportInstanceStatus",
-  #     "Version" => @version,
-  #     "Status"  => status
-  #     })
-  #   |> Map.merge(list_builder(instance_ids, "InstanceId", 1, %{}))
-  #
-  #   request(:get, "/", query_params)
-  # end
-
-  ##################
-  # AMI Operations #
-  ##################
-
-  # @type create_image_opts :: [
-  #   {:block_device_mapping, block_device_mapping_list}          |
-  #   {:description, binary}                                      |
-  #   {:dry_run, boolean}                                         |
-  #   {:no_reboot, boolean}
-  # ]
-  # @doc """
-  # Creates an Amazon EBS-backed AMI from an Amazon EBS-backed instance
-  # that is either running or stopped.
-  # """
-  # @spec create_image(instance_id :: binary, name :: binary) :: ExAws.Operation.RestQuery.t
-  # @spec create_image(instance_id :: binary, name :: binary, opts :: create_image_opts) :: ExAws.Operation.RestQuery.t
-  # def create_image(instance_id, name, opts \\ []) do
-  #   query_params = opts
-  #   |> normalize_opts
-  #   |> Map.merge(%{
-  #     "Action"     => "CreateImage",
+  #     "Action"     => "ModifyInstanceAttribute",
   #     "Version"    => @version,
   #     "InstanceId" => instance_id,
-  #     "Name"       => name
   #     })
   #
   #   request(:post, "/", query_params)
   # end
   #
+
+  @doc """
+  Resets an attribute of an instance to its default value. To reset the kernel
+  or ramdisk, the instance must be in a stopped state. To reset the
+  SourceDestCheck, the instance can be either running or stopped.
+
+  Doc: http://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_ResetInstanceAttribute.html
+  """
+  @type reset_instance_attribute_opts :: [
+    dry_run: boolean
+  ]
+  @spec reset_instance_attribute(instance_id :: binary, attribute :: binary) :: ExAws.Operation.RestQuery.t
+  @spec reset_instance_attribute(instance_id :: binary, attribute :: binary, opts :: reset_instance_attribute_opts) :: ExAws.Operation.RestQuery.t
+  def reset_instance_attribute(instance_id, attribute, opts \\ []) do
+    query_params = opts
+    |> normalize_opts
+    |> Map.merge(%{
+      "InstanceId" => instance_id,
+      "Attribute"  => attribute
+      })
+
+    request(:post, :reset_instance_attribute, query_params)
+  end
+
+
+  @doc """
+  Gets the console output for the specified instance.
+
+  Doc: http://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_GetConsoleOutput.html
+
+  Examples:
+  ```
+  EC2.get_console_output("i-123456")
+  ```
+  """
+  @type get_console_output_opts :: [
+    dry_run: boolean
+  ]
+  @spec get_console_output(instance_id :: binary) :: ExAws.Operation.RestQuery.t
+  @spec get_console_output(instance_id :: binary, opts :: get_console_output_opts) :: ExAws.Operation.RestQuery.t
+  def get_console_output(instance_id, opts \\ []) do
+    query_params = opts
+    |> normalize_opts
+    |> Map.merge(%{"InstanceId" => instance_id})
+
+    request(:get, :get_console_output, query_params)
+  end
+
+
+  @doc """
+  Retrieves the encrypted administrator password for an instance running
+  Windows.
+
+  Doc: http://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_GetPasswordData.html
+  ```
+  EC2.get_password_data("i-123456"s)
+  EC2.get_password_data("i-123456", [dry_run: true])
+  ```
+  """
+  @type get_password_data_opts :: [
+    dry_run: boolean
+  ]
+  @spec get_password_data(instance_id :: binary) :: ExAws.Operation.RestQuery.t
+  @spec get_password_data(instance_id :: binary, opts :: get_password_data_opts) :: ExAws.Operation.RestQuery.t
+  def get_password_data(instance_id, opts \\ []) do
+    query_params = opts
+    |> normalize_opts
+    |> Map.merge(%{
+      "InstanceId" => instance_id
+      })
+
+    request(:get, :get_password_data, query_params)
+  end
+
+  ##################
+  # AMI Operations #
+  ##################
+
+  @doc """
+  Creates an Amazon EBS-backed AMI from an Amazon EBS-backed instance
+  that is either running or stopped.
+  """
+  @type ebs :: [
+    delete_on_termination: boolean,
+    encrypted: boolean,
+    iops: integer,
+    snapshot_id: binary,
+    volume_size: integer,
+    volume_type: volume_type
+  ]
+  @type block_device_mapping :: [
+    device_name: binary,
+    ebs: ebs,
+    no_device: binary,
+    virtual_name: binary
+  ]
+  @type create_image_opts :: [
+    block_device_mappings: [block_device_mapping, ...],
+    description: binary,
+    dry_run: boolean,
+    no_reboot: boolean
+  ]
+  @spec create_image(instance_id :: binary, name :: binary) :: ExAws.Operation.RestQuery.t
+  @spec create_image(instance_id :: binary, name :: binary, opts :: create_image_opts) :: ExAws.Operation.RestQuery.t
+  def create_image(instance_id, name, opts \\ []) do
+    query_params = opts
+    |> Keyword.delete(:block_device_mappings)
+    |> normalize_opts
+    |> Map.merge(maybe_format(opts, :block_device_mappings) |> Enum.into(%{}))
+    |> Map.merge(%{
+      "InstanceId" => instance_id,
+      "Name"       => name
+      })
+
+    request(:post, :create_image, query_params)
+  end
+
 
   @doc """
   Initiates the copy of an AMI from the specified source region to the current
@@ -369,34 +573,56 @@ defmodule ExAws.EC2 do
     request(:get, :describe_image_attribute, query_params)
   end
 
-  # @type modify_image_attribute_opts :: [
-  #   {:attribute, binary}                                  |
-  #   {:description, attribute_value}                       |
-  #   {:dry_run, boolean}                                   |
-  #   {:launch_permission, launch_permission_modifications} |
-  #   {:operation_type, :add | :remove}                     |
-  #   {:product_code, :add | :remove}                       |
-  #   {:user_group, [binary]}                               |
-  #   {:value, binary}
-  # ]
-  # @doc """
-  # Modifies the specified attribute of the specified AMI. You can specify only
-  # one attribute at a time.
-  # """
-  # @spec modify_image_attribute(image_id :: binary) :: ExAws.Operation.RestQuery.t
-  # @spec modify_image_attribute(image_id :: binary, opts :: modify_image_attribute_opts) :: ExAws.Operation.RestQuery.t
-  # def modify_image_attribute(image_id, opts \\ []) do
-  #   query_params = opts
-  #   |> normalize_opts
-  #   |> Map.merge(%{
-  #     "Action"  => "ModifyImageAttribute",
-  #     "Version" => @version,
-  #     "ImageId" => image_id
-  #     })
-  #
-  #   request(:post, "/", query_params)
-  # end
-  #
+  @doc """
+  Modifies the specified attribute of the specified AMI. You can specify only
+  one attribute at a time.
+
+  Doc: http://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_ModifyImageAttribute.html
+  """
+  @type permission :: [
+    group: binary,
+    user_id: binary
+  ]
+  @type permission_modifications :: [
+    add: [permission, ...],
+    remove: [permission, ...]
+  ]
+  @type modify_image_attribute_opts :: [
+    attribute: binary,
+    description: binary,
+    dry_run: boolean,
+    launch_permission: permission_modifications,
+    operation_type: [:add | :remove],
+    product_codes: [binary, ...],
+    user_ids: [binary, ...],
+    user_groups: [binary, ...],
+    value: binary
+  ]
+  @spec modify_image_attribute(image_id :: binary) :: ExAws.Operation.RestQuery.t
+  @spec modify_image_attribute(image_id :: binary, opts :: modify_image_attribute_opts) :: ExAws.Operation.RestQuery.t
+  def modify_image_attribute(image_id, opts \\ []) do
+    user_ids = maybe_format(opts, :user_ids)
+    user_groups = maybe_format(opts, :user_groups)
+    product_codes = maybe_format(opts, :product_codes)
+    launch_permission = maybe_format(opts, :launch_permission)
+    description = maybe_format(opts, :description)
+
+    normalized_params = opts
+    |> Keyword.delete(:operation_type)
+    |> Keyword.delete(:user_ids)
+    |> Keyword.delete(:user_groups)
+    |> Keyword.delete(:launch_permission)
+    |> Keyword.delete(:description)
+    |> Keyword.delete(:product_codes)
+    |> normalize_opts
+
+    query_params = Enum.concat([user_ids, user_groups, product_codes, launch_permission, normalized_params, description])
+    |> Enum.into(%{})
+    |> Map.merge(%{"ImageId" => image_id})
+
+    request(:post, :modify_image_attribute, query_params)
+  end
+
 
   @doc """
   Resets an attribute of an AMI to its default value.
@@ -422,37 +648,49 @@ defmodule ExAws.EC2 do
 
     request(:post, :reset_image_attribute, query_params)
   end
-  #
-  # @type register_image_opts :: [
-  #   {:architecture, :i386 | :x86_64}                            |
-  #   {:block_device_mapping, block_device_mapping_list}          |
-  #   {:description, binary}                                      |
-  #   {:dry_run, boolean}                                         |
-  #   {:image_location, binary}                                   |
-  #   {:kernel_id, binary}                                        |
-  #   {:ram_disk_id, binary}                                      |
-  #   {:root_device_name, binary}                                 |
-  #   {:sriov_net_support, binary}                                |
-  #   {:virtualization_type, binary}
-  # ]
-  # @doc """
-  # Registers an AMI. When you're creating an AMI, this is the final step you
-  # must complete before you can launch an instance from the AMI.
-  # """
-  # @spec register_image(name :: binary) :: ExAws.Operation.RestQuery.t
-  # @spec register_image(name :: binary, opts :: register_image_opts) :: ExAws.Operation.RestQuery.t
-  # def register_image(name, opts \\ []) do
-  #   query_params = opts
-  #   |> normalize_opts
-  #   |> Map.merge(%{
-  #     "Action"  => "RegisterImage",
-  #     "Version" => @version,
-  #     "Name"    => name
-  #     })
-  #
-  #   request(:post, "/", query_params)
-  # end
-  #
+
+  @doc """
+  Registers an AMI. When you're creating an AMI, this is the final step you
+  must complete before you can launch an instance from the AMI.
+
+  Doc: http://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_RegisterImage.html
+  """
+  @type register_image_opts :: [
+    architecture: :i386 | :x86_64,
+    billing_products: [binary, ...],
+    block_device_mappings: [block_device_mapping, ...],
+    description: binary,
+    dry_run: boolean,
+    ena_support: boolean,
+    image_location: binary,
+    kernel_id: binary,
+    ram_disk_id: binary,
+    root_device_name: binary,
+    sriov_net_support: binary,
+    virtualization_type: binary
+  ]
+  @spec register_image(name :: binary) :: ExAws.Operation.RestQuery.t
+  @spec register_image(name :: binary, opts :: register_image_opts) :: ExAws.Operation.RestQuery.t
+  def register_image(name, opts \\ []) do
+    architecture = maybe_format(opts, :architecture)
+    billing_products = maybe_format(opts, :billing_products)
+    block_device_mappings = maybe_format(opts, :block_device_mappings)
+
+    normalized_params = opts
+    |> Keyword.delete(:block_device_mappings)
+    |> Keyword.delete(:billing_products)
+    |> Keyword.delete(:architecture)
+    |> normalize_opts
+    |> Map.merge(%{
+      "Name" => name
+      })
+
+    query_params = Enum.concat([architecture, billing_products, block_device_mappings, normalized_params])
+    |> Enum.into(%{})
+
+    request(:post, :register_image, query_params)
+  end
+
 
   @doc """
   Deregisters the specified AMI. After you deregister an AMI, it can't be used
@@ -648,6 +886,116 @@ defmodule ExAws.EC2 do
     request(:post, :modify_volume, modify_volume_params)
   end
 
+
+  @doc """
+  Enables I/O operations for a volume that had I/O operations disabled because
+  the data on the volume was potentially inconsistent.
+  """
+  @type enable_volume_io_opts :: [
+    dry_run: boolean
+  ]
+  @spec enable_volume_io(volume_id :: binary) :: ExAws.Operation.RestQuery.t
+  @spec enable_volume_io(volume_id :: binary, opts :: enable_volume_io_opts) :: ExAws.Operation.RestQuery.t
+  def enable_volume_io(volume_id, opts \\ []) do
+    query_params = opts
+    |> normalize_opts
+    |> Map.merge(%{"VolumeId" => volume_id})
+
+    request(:post, :enable_volume_io, query_params)
+  end
+
+  @doc """
+  Describes the specified EBS volumes.
+
+  Doc: http://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_DescribeVolumes.html
+  """
+  @type describe_volumes_opts :: [
+    dry_run: boolean,
+    filters: [filter, ...],
+    max_results: integer,
+    next_token: binary,
+    volume_ids: [binary, ...]
+  ]
+  @spec describe_volumes() :: ExAws.Operation.RestQuery.t
+  @spec describe_volumes(opts :: describe_volumes_opts) :: ExAws.Operation.RestQuery.t
+  def describe_volumes(opts \\ []) do
+    query_params = opts
+    |> Keyword.delete(:volume_ids)
+    |> Keyword.delete(:filters)
+    |> normalize_opts
+    |> Map.merge(maybe_format(opts, :filters) |> Enum.into(%{}))
+    |> Map.merge(maybe_format(opts, :volume_ids) |> Enum.into(%{}))
+
+    request(:get, :describe_volumes, query_params)
+  end
+
+  @doc """
+  Describes the status of the specified volumes.
+
+  Doc: http://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_DescribeVolumeStatus.html
+  """
+  @type describe_volume_status_opts :: [
+    dry_run: boolean,
+    filters: [filter, ...],
+    max_results: integer,
+    next_token: binary,
+    volume_ids: [binary, ...]
+ ]
+ @spec describe_volume_status() :: ExAws.Operation.RestQuery.t
+ @spec describe_volume_status(opts :: describe_volume_status_opts) :: ExAws.Operation.RestQuery.t
+ def describe_volume_status(opts \\ []) do
+   query_params = opts
+   |> Keyword.delete(:volume_ids)
+   |> Keyword.delete(:filters)
+   |> normalize_opts
+   |> Map.merge(maybe_format(opts, :filters) |> Enum.into(%{}))
+   |> Map.merge(maybe_format(opts, :volume_ids) |> Enum.into(%{}))
+
+   request(:get, :describe_volume_status, query_params)
+ end
+
+ @doc """
+ Modifies a volume attribute.
+
+ Doc: http://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_ModifyVolumeAttribute.html
+ """
+ @type modify_volume_attribute_opts :: [
+    auto_enable_io: boolean,
+    dry_run: boolean
+ ]
+ @spec modify_volume_attribute(volume_id :: binary) :: ExAws.Operation.RestQuery.t
+ @spec modify_volume_attribute(volume_id :: binary, opts :: modify_volume_attribute_opts) :: ExAws.Operation.RestQuery.t
+ def modify_volume_attribute(volume_id, opts \\ []) do
+   query_params = opts
+   |> Keyword.delete(:auto_enable_io)
+   |> normalize_opts
+   |> Map.merge(%{"VolumeId" => volume_id})
+   |> Map.merge(maybe_format(opts, :auto_enable_io) |> Enum.into(%{}))
+
+   request(:post, :modify_volume_attribute, query_params)
+ end
+
+
+  @doc """
+  Describes the specified attribute of the specified volume. You can specify
+  only one attribute at a time.
+  """
+  @type describe_volume_attribute_opts :: [
+    dry_run: boolean
+  ]
+  @spec describe_volume_attribute(volume_id :: binary, attribute :: binary) :: ExAws.Operation.RestQuery.t
+  @spec describe_volume_attribute(volume_id :: binary, attribute :: binary, opts :: describe_volume_attribute_opts) :: ExAws.Operation.RestQuery.t
+  def describe_volume_attribute(volume_id, attribute, opts \\ []) do
+    query_params = opts
+    |> normalize_opts
+    |> Map.merge(%{
+      "VolumeId"  => volume_id,
+      "Attribute" => attribute})
+
+    request(:get, :describe_volume_attribute, query_params)
+  end
+
+
   #######################
   # Snapshot Operations #
   #######################
@@ -657,27 +1005,35 @@ defmodule ExAws.EC2 do
 
   Doc: http://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_DescribeSnapshots.html
   """
-  # @type describe_snapshots_opts :: [
-  #   {:dry_run, boolean}                            |
-  #   {:filters, [filter]}                           |
-  #   {:max_results, integer}                        |
-  #   {:next_token, binary}                          |
-  #   {:owner, [binary]}                             |
-  #   {:restorable_by, [binary]}                     |
-  #   {:snapshot_id, [binary]}
-  # ]
-  # @spec describe_snapshots() :: ExAws.Operation.RestQuery.t
-  # @spec describe_snapshots(opts :: describe_snapshots_opts) :: ExAws.Operation.RestQuery.t
-  # def describe_snapshots(opts \\ []) do
-  #   query_params = opts
-  #   |> normalize_opts
-  #   |> Map.merge(%{
-  #     "Action"  => "DescribeSnapshots",
-  #     "Version" => @version
-  #     })
-  #
-  #   request(:get, "/", query_params)
-  # end
+  @type describe_snapshots_opts :: [
+    dry_run: boolean,
+    filters: [filter, ...],
+    max_results: integer,
+    next_token: binary,
+    owners: [binary, ...],
+    restorable_by_ids: [binary, ...],
+    snapshot_ids: [binary, ...]
+  ]
+  @spec describe_snapshots() :: ExAws.Operation.RestQuery.t
+  @spec describe_snapshots(opts :: describe_snapshots_opts) :: ExAws.Operation.RestQuery.t
+  def describe_snapshots(opts \\ []) do
+    filters = maybe_format(opts, :filters)
+    owners = maybe_format(opts, :owners)
+    restorable_by_ids = maybe_format(opts, :restorable_by_ids)
+    snapshot_ids = maybe_format(opts, :snapshot_ids)
+
+    normalized_params = opts
+    |> Keyword.delete(:filters)
+    |> Keyword.delete(:owners)
+    |> Keyword.delete(:restorable_by_ids)
+    |> Keyword.delete(:snapshot_ids)
+    |> normalize_opts
+
+    query_params = Enum.concat([filters, owners, restorable_by_ids, snapshot_ids, normalized_params])
+      |> Enum.into(%{})
+
+    request(:get, :describe_snapshots, query_params)
+  end
 
   @doc """
   Creates a snapshot of an EBS volume and stores it in Amazon S3.
@@ -774,34 +1130,34 @@ defmodule ExAws.EC2 do
 
   Doc: http://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_ModifySnapshotAttribute.html
   """
-  # @type create_volume_permission :: [
-  #   user_id: [binary, ...],
-  #   group: [binary, ...]
-  # ]
-  # @type create_volume_permissions_modifications :: [
-  #   add: [create_volume_permission, ...]
-  #   remove: [create_volume_permission, ...]
-  # ]
-  # @type modify_snapshot_attribute_opts :: [
-  #   attribute: [:product_codes | :create_volume_permission],
-  #   create_volume_permission: create_volume_permission_modifications,
-  #   dry_run: boolean,
-  #   user_groups: [binary, ...],
-  #   user_ids: [binary, ...]
-  # ]
-  # @spec modify_snapshot_attribute(snapshot_id :: binary) :: ExAws.Operation.RestQuery.t
-  # @spec modify_snapshot_attribute(snapshot_id :: binary, opts :: modify_snapshot_attribute_opts) :: ExAws.Operation.RestQuery.t
-  # def modify_snapshot_attribute(snapshot_id, opts \\ []) do
-  #   query_params = opts
-  #   |> Keyword.delete(:attribute)
-  #   |> Keyword.delete(:create_volume_permission)
-  #   |> Keyword.delete(:user_groups)
-  #   |> Keyword.delete(:user_ids)
-  #   |> normalize_opts
-  #   |> Map.merge(%{"SnapshotId" => snapshot_id})
-  #
-  #   request(:post, "/", query_params)
-  # end
+  @type modify_snapshot_attribute_opts :: [
+    attribute: [:product_codes | :create_volume_permission],
+    create_volume_permission: permission_modifications,
+    dry_run: boolean,
+    user_groups: [binary, ...],
+    user_ids: [binary, ...]
+  ]
+  @spec modify_snapshot_attribute(snapshot_id :: binary) :: ExAws.Operation.RestQuery.t
+  @spec modify_snapshot_attribute(snapshot_id :: binary, opts :: modify_snapshot_attribute_opts) :: ExAws.Operation.RestQuery.t
+  def modify_snapshot_attribute(snapshot_id, opts \\ []) do
+    attribute = maybe_format(opts, :attribute)
+    create_volume_permission = maybe_format(opts, :create_volume_permission)
+    user_groups = maybe_format(opts, :user_groups)
+    user_ids = maybe_format(opts, :user_ids)
+
+    normalize_params = opts
+    |> Keyword.delete(:attribute)
+    |> Keyword.delete(:create_volume_permission)
+    |> Keyword.delete(:user_groups)
+    |> Keyword.delete(:user_ids)
+    |> normalize_opts
+    |> Map.merge(%{"SnapshotId" => snapshot_id})
+
+    query_params = Enum.concat([attribute, create_volume_permission, user_groups, user_ids, normalize_params])
+    |> Enum.into(%{})
+
+    request(:post, :modify_snapshot_attribute, query_params)
+  end
 
   @doc """
   Resets permission settings for the specified snapshot.
@@ -839,9 +1195,9 @@ defmodule ExAws.EC2 do
   @type bundle_instance_opts :: [
     dry_run: boolean
   ]
-  @spec bundle_instance(instance_id :: binary, s3_storage) :: ExAws.Operation.RestQuery.t
-  @spec bundle_instance(instance_id :: binary, s3_storage, opts :: bundle_instance_opts) :: ExAws.Operation.RestQuery.t
-  def bundle_instance(instance_id, {s3_aws_access_key_id, s3_bucket, s3_prefix, s3_upload_policy, s3_upload_policy_sig}, opts \\ []) do
+  @spec bundle_instance(instance_id :: binary, s3_aws_access_key_id :: binary, s3_bucket :: binary, s3_prefix :: binary, s3_upload_policy :: binary, s3_upload_policy_signature :: binary) :: ExAws.Operation.RestQuery.t
+  @spec bundle_instance(instance_id :: binary, s3_aws_access_key_id :: binary, s3_bucket :: binary, s3_prefix :: binary, s3_upload_policy :: binary, s3_upload_policy_signature :: binary, opts :: bundle_instance_opts) :: ExAws.Operation.RestQuery.t
+  def bundle_instance(instance_id, s3_aws_access_key_id, s3_bucket, s3_prefix, s3_upload_policy, s3_upload_policy_signature, opts \\ []) do
     query_params = opts
     |> normalize_opts
     |> Map.merge(%{
@@ -850,7 +1206,7 @@ defmodule ExAws.EC2 do
       "Storage.S3.Bucket"                => s3_bucket,
       "Storage.S3.Prefix"                => s3_prefix,
       "Storage.S3.UploadPolicy"          => s3_upload_policy,
-      "Storage.S3.UploadPolicySignature" => s3_upload_policy_sig
+      "Storage.S3.UploadPolicySignature" => s3_upload_policy_signature
       })
 
     request(:post, :bundle_instance, query_params)
@@ -900,7 +1256,7 @@ defmodule ExAws.EC2 do
     |> Keyword.delete(:filters)
     |> normalize_opts
 
-    request(:get, "/", query_params)
+    request(:get, :describe_bundle_tasks, query_params)
   end
 
   ###################
@@ -1531,9 +1887,9 @@ defmodule ExAws.EC2 do
   end
 
 
-  @doc """
-  Adds one or more ingress rules to a security group.
-  """
+  # @doc """
+  # Adds one or more ingress rules to a security group.
+  # """
   # @type authorize_security_group_ingress_opts :: [
   #   cidr_ip: binary,
   #   dry_run: boolean,
@@ -1670,6 +2026,10 @@ defmodule ExAws.EC2 do
   ####################
   # Format Functions #
   ####################
+  defp format_request(:architecture, architecture) do
+    [{"Architecture", architecture |> Atom.to_string}]
+  end
+
   defp format_request(:assign_ipv6_address_on_creation, assign_ipv6_address_on_creation) do
     [{"AssignIpv6AddressOnCreation.Value", assign_ipv6_address_on_creation}]
   end
@@ -1688,8 +2048,47 @@ defmodule ExAws.EC2 do
     build_indexed_params("AttributeName", modified_attribute_names)
   end
 
+  defp format_request(:auto_enable_io, auto_enable_io) do
+    [{"AutoEnableIO.Value", auto_enable_io}]
+  end
+
+  defp format_request(:billing_products, billing_products) do
+    build_indexed_params("BillingProduct", billing_products)
+  end
+
   defp format_request(:bundle_ids, bundle_ids) do
     build_indexed_params("BundleId", bundle_ids)
+  end
+
+  defp format_request(:block_device_mappings, block_device_mappings) do
+    transformed_block_device_mappings = for block_device_mapping <- block_device_mappings do
+        [
+          device_name: block_device_mapping[:device_name],
+          no_device: block_device_mapping[:no_device],
+          virtual_name: block_device_mapping[:virtual_name]
+        ] ++ format_request(:ebs, block_device_mapping[:ebs])
+      end
+      build_indexed_params("BlockDeviceMapping", transformed_block_device_mappings)
+      |> filter_nil_params
+  end
+
+  defp format_request(:create_volume_permission, create_volume_permission) do
+    format_request(:permission, create_volume_permission)
+    |> Enum.map(fn {key, value} -> {"CreateVolumePermission." <> key, value} end)
+  end
+
+  defp format_request(:description, description) do
+    [{"Description.Value", description}]
+  end
+
+  defp format_request(:ebs, ebs) do
+    ebs
+    |> Enum.map(fn
+      {:volume_type, value} ->
+        {"Ebs." <> camelize_key(:volume_type), Atom.to_string(value)}
+      {key, value} ->
+        {"Ebs." <> camelize_key(key), value}
+    end)
   end
 
   defp format_request(:enable_dns_hostnames, enable_dns_hostnames) do
@@ -1698,6 +2097,10 @@ defmodule ExAws.EC2 do
 
   defp format_request(:enable_dns_support, enable_dns_support) do
     [{"EnableDnsSupport.Value", enable_dns_support}]
+  end
+
+  defp format_request(:end_time, end_time) do
+    [{"EndTime", DateTime.to_iso8601(end_time)}]
   end
 
   defp format_request(:executable_by_list, executable_by_list) do
@@ -1735,12 +2138,31 @@ defmodule ExAws.EC2 do
     build_indexed_params("KeyName", key_names)
   end
 
+  defp format_request(:permission, permission) do
+    Enum.concat([build_indexed_params("Add", permission[:add]),
+                 build_indexed_params("Remove", permission[:remove])
+    ]) |> filter_nil_params
+  end
+
+  defp format_request(:launch_permission, launch_permission) do
+    format_request(:permission, launch_permission)
+    |> Enum.map(fn {key, value} -> {"LaunchPermission." <> key, value} end)
+  end
+
   defp format_request(:map_public_ip_on_launch, map_public_ip_on_launch) do
     [{"MapPublicIpOnLaunch.Value", map_public_ip_on_launch}]
   end
 
   defp format_request(:owners, owners) do
     build_indexed_params("Owner", owners)
+  end
+
+  defp format_request(:product_codes, product_codes) do
+    build_indexed_params("ProductCode", product_codes)
+  end
+
+  defp format_request(:reason_codes, reason_codes) do
+    build_indexed_params("ReasonCode", reason_codes)
   end
 
   defp format_request(:region_names, region_names) do
@@ -1756,6 +2178,18 @@ defmodule ExAws.EC2 do
 
   defp format_request(:resource_ids, resource_ids) do
     build_indexed_params("ResourceId", resource_ids)
+  end
+
+  defp format_request(:restorable_by_ids, restorable_by_ids) do
+    build_indexed_params("RestorableBy", restorable_by_ids)
+  end
+
+  defp format_request(:snapshot_ids, snapshot_ids) do
+    build_indexed_params("SnapshotId", snapshot_ids)
+  end
+
+  defp format_request(:start_time, start_time) do
+    [{"StartTime", DateTime.to_iso8601(start_time)}]
   end
 
   defp format_request(:subnet_ids, subnet_ids) do
@@ -1781,10 +2215,6 @@ defmodule ExAws.EC2 do
     |> filter_nil_params
   end
 
-  defp format_request(:create_permission_modifications, create_permission_modifications) do
-    create_permission_modifications = for{}
-  end
-
   defp format_request(:tag_specifications, tag_specs) do
     tag_specs = for {resource_type, tags} <- tag_specs do
       [resource_type: Atom.to_string(resource_type),
@@ -1795,6 +2225,9 @@ defmodule ExAws.EC2 do
     |> filter_nil_params
   end
 
+  defp format_request(:volume_ids, volume_ids) do
+    build_indexed_params("VolumeId", volume_ids)
+  end
 
   defp format_request(:volume_type, volume_type) do
     [{"VolumeType", volume_type |> Atom.to_string}]
