@@ -30,7 +30,7 @@ defmodule ExAws.ElastiCache do
           "NumCacheNodes" => 1,
           "PreferredAvailabilityZones.PreferredAvailabilityZone.1" => "us-east-1a",
           "Version" => "2015-02-02"},
-        parser: &ExAws.Utils.identity/2, path: "/", service: :elasticache}
+        parser: &ExAws.ElastiCache.Parsers.parse/3, path: "/", service: :elasticache}
 
         iex> ExAws.ElastiCache.create_cache_cluster("myMemcachedCluster", "cache.m3.medium", "memcached", 1)
         %ExAws.Operation.Query{action: :create_cache_cluster,
@@ -41,7 +41,7 @@ defmodule ExAws.ElastiCache do
           "Engine" => "memcached",
           "NumCacheNodes" => 1,
           "Version" => "2015-02-02"},
-        parser: &ExAws.Utils.identity/2, path: "/", service: :elasticache}
+        parser: &ExAws.ElastiCache.Parsers.parse/3, path: "/", service: :elasticache}
 
   """
   @type create_cache_cluster :: [
@@ -92,7 +92,7 @@ defmodule ExAws.ElastiCache do
           "Action" => "DeleteCacheCluster",
           "CacheClusterId" => "Test",
           "Version" => "2015-02-02"},
-        parser: &ExAws.Utils.identity/2, path: "/",
+        parser: &ExAws.ElastiCache.Parsers.parse/3, path: "/",
         service: :elasticache}
 
         iex> ExAws.ElastiCache.delete_cache_cluster("Test", [final_snapshot_identifier: "finalSnapshot"])
@@ -102,7 +102,7 @@ defmodule ExAws.ElastiCache do
           "CacheClusterId" => "Test",
           "FinalSnapshotIdentifier" => "finalSnapshot",
           "Version" => "2015-02-02"},
-        parser: &ExAws.Utils.identity/2, path: "/",
+        parser: &ExAws.ElastiCache.Parsers.parse/3, path: "/",
         service: :elasticache}
 
   """
@@ -129,7 +129,7 @@ defmodule ExAws.ElastiCache do
       params: %{
         "Action" => "DescribeCacheClusters",
         "Version" => "2015-02-02"},
-      parser: &ExAws.Utils.identity/2, path: "/", service: :elasticache}
+      parser: &ExAws.ElastiCache.Parsers.parse/3, path: "/", service: :elasticache}
 
       iex> ExAws.ElastiCache.describe_cache_clusters([max_records: 100, show_cache_node_info: false])
       %ExAws.Operation.Query{action: :describe_cache_clusters,
@@ -138,7 +138,7 @@ defmodule ExAws.ElastiCache do
         "MaxRecords" => 100,
         "ShowCacheNodeInfo" => false,
         "Version" => "2015-02-02"},
-      parser: &ExAws.Utils.identity/2, path: "/", service: :elasticache}
+      parser: &ExAws.ElastiCache.Parsers.parse/3, path: "/", service: :elasticache}
   """
   @type describe_cache_clusters :: [
     cache_cluster_id: binary,
@@ -151,14 +151,6 @@ defmodule ExAws.ElastiCache do
   def describe_cache_clusters(opts \\ []) do
     opts |> build_request(:describe_cache_clusters)
   end
-
-
-  @type describe_cache_engine_version :: [
-    
-  ]
-  def describe_cache_engine_versions(opts :: describe_cache_engine_versions) do
-  end
-
 
   ####################
   # Helper Functions #
@@ -180,7 +172,8 @@ defmodule ExAws.ElastiCache do
       path: "/",
       params: params |> filter_nil_params |> Map.put("Action", action_string) |> Map.put("Version", @version),
       service: :elasticache,
-      action: action
+      action: action,
+      parser: &ExAws.ElastiCache.Parsers.parse/3
     }
   end
 

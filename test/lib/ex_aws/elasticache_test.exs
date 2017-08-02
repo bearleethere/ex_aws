@@ -16,7 +16,8 @@ defmodule ExAws.ElastiCacheTest do
       path: "/",
       params: params |> Map.merge(%{"Version" => @version, "Action" => action_string}),
       service: :elasticache,
-      action: action
+      action: action,
+      parser: &ExAws.ElastiCache.Parsers.parse/3
     }
   end
 
