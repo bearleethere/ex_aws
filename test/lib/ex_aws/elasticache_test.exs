@@ -44,14 +44,16 @@ defmodule ExAws.ElastiCacheTest do
       "PreferredAvailabilityZones.PreferredAvailabilityZone.1" => "us-east-1",
       "PreferredAvailabilityZones.PreferredAvailabilityZone.2" => "us-east-2",
       "SnapshotArns.SnapshotArn.1" => "arn:aws:s3:::my_bucket/snapshot1.rdb",
-      "SnapshotArns.SnapshotArn.2" => "arn:aws:s3:::my_bucket/snapshot2.rdb"
+      "SnapshotArns.SnapshotArn.2" => "arn:aws:s3:::my_bucket/snapshot2.rdb",
+      "AZMode" => "cross-az"
       })
 
     assert expected == ElastiCache.create_cache_cluster("myMemcachedCluster", "cache.m1.small", "memcached", 3,
       [cache_security_group_names: ["securityGroup1", "securityGroup2"],
        preferred_maintenance_window: "sun:23:00-mon:01:30",
        preferred_availability_zones: ["us-east-1", "us-east-2"],
-       snapshot_arns: ["arn:aws:s3:::my_bucket/snapshot1.rdb", "arn:aws:s3:::my_bucket/snapshot2.rdb"]
+       snapshot_arns: ["arn:aws:s3:::my_bucket/snapshot1.rdb", "arn:aws:s3:::my_bucket/snapshot2.rdb"],
+       az_mode: "cross-az"
       ]
     )
   end

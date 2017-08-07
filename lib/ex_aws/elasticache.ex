@@ -1,16 +1,14 @@
 defmodule ExAws.ElastiCache do
 
-  import ExAws.Utils
+  use ExAws.Utils,
+  format_type: :xml,
+  non_standard_keys: %{
+    az_mode: "AZMode"
+  }
 
   @version "2015-02-02"
 
   @type tag :: {key :: atom, value :: binary}
-
-  @spec add_tags_to_resource(resource_name :: binary, tags :: [tag, ...]) :: ExAws.Operation.Query.t
-  def add_tags_to_resource(resource_name, tags) do
-    [ {"ResourceName", resource_name}, tags: tags ]
-    |> build_request(:add_tags_to_resource)
-  end
 
   @doc """
   Creates a cache cluster. All nodes in the cache cluster run the same protocol-
